@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Consultas al Equipo SAP — Integración Despachos Petroperú</title>
+<style>
+  :root {
+    --petro: #003d7c;
+    --rojo: #c8102e;
+    --gris: #f4f5f7;
+    --borde: #dcdcdc;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; color: #222; line-height: 1.5; max-width: 960px; margin: 0 auto; padding: 2rem 1.5rem; }
+  h1 { color: var(--petro); border-bottom: 3px solid var(--rojo); padding-bottom: .4rem; margin-bottom: .3rem; font-size: 1.6rem; }
+  .sub { color: #555; font-size: .9rem; margin-bottom: 1.5rem; }
+  h2 { color: var(--petro); font-size: 1.2rem; margin-top: 2rem; padding: .4rem .6rem; background: var(--gris); border-left: 4px solid var(--rojo); page-break-after: avoid; }
+  table { width: 100%; border-collapse: collapse; margin: .5rem 0 1.5rem; font-size: .85rem; }
+  th, td { padding: .5rem .6rem; text-align: left; vertical-align: top; border-bottom: 1px solid var(--borde); }
+  th { background: var(--petro); color: #fff; font-weight: 600; white-space: nowrap; }
+  th:first-child { width: 3rem; text-align: center; }
+  td:first-child { text-align: center; font-weight: 700; color: var(--petro); }
+  tr:nth-child(even) td { background: var(--gris); }
+  .anexo { margin-top: 2.5rem; padding: 1rem; background: #fff9e6; border: 1px solid #e6c300; border-radius: 6px; }
+  .anexo h3 { color: #8b7300; margin-bottom: .5rem; }
+  .anexo pre { font-size: .75rem; background: #fff; padding: .8rem; border: 1px solid #ddd; border-radius: 4px; overflow-x: auto; }
+  @media print {
+    body { padding: 0; max-width: 100%; }
+    h2 { background: none; border-left: 4px solid #000; }
+    .anexo { background: #fff; border: 1px solid #000; }
+    tr:nth-child(even) td { background: #eee; }
+    table { page-break-inside: avoid; }
+    h2 { page-break-before: always; }
+    h2:first-of-type { page-break-before: avoid; }
+  }
+</style>
+</head>
+<body>
+
+<h1>Consultas al Equipo SAP</h1>
+<p class="sub">Integración Despachos Petroperú — Servicio Web ↔ SAP (Interfaces 3.1 y 3.2) — Mayo 2026</p>
+
+<h2>1. Interfaz de Planificación de Carga (3.1) — SAP → Servicio Web</h2>
+<table>
+<thead><tr><th>#</th><th>Pregunta</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>¿URL base de SAP (dev / qa / prod) desde donde enviarán el POST a <code>/planificacion</code>? ¿Es a través de SAP PI/PO o directo desde S/4HANA?</td></tr>
+<tr><td>2</td><td>¿Qué valor de <code>X-API-Key</code> usará SAP para autenticarse? Necesitamos el valor por cada ambiente.</td></tr>
+<tr><td>3</td><td>¿SAP soporta el comportamiento de idempotencia? Si reenvían un mismo <code>NroTransporte</code> en estado <em>Pendiente</em>, hacemos update (delete + re-insert). En cualquier otro estado respondemos 409 Conflict. ¿Les funciona ese comportamiento?</td></tr>
+<tr><td>4</td><td>Confirmar formato de <code>FechaCarga</code>: ¿siempre <code>yyyyMMdd</code> sin hora? ¿En qué zona horaria?</td></tr>
+<tr><td>5</td><td><code>Producto</code>: ¿es código de material SAP? ¿Existe catálogo fijo o debemos validar contra el maestro de materiales?</td></tr>
+<tr><td>6</td><td><code>UMVol</code>: ¿qué códigos de unidad de medida usa SAP (ej. <code>GAL</code>, <code>L</code>, <code>BBL</code>)? ¿Catálogo disponible?</td></tr>
+<tr><td>7</td><td><code>API</code> en el Detail: ¿proviene del maestro de materiales de SAP o es un valor calculado por ellos? ¿Es obligatorio?</td></tr>
+<tr><td>8</td><td><code>NroEntrega</code>: ¿representa un delivery document, sales order, o shipment en SAP?</td></tr>
+<tr><td>9</td><td><code>BayQueuePriority</code>: ¿qué valores posibles y qué criterio usa SAP para asignar la prioridad de cola en bahía?</td></tr>
+<tr><td>10</td><td><code>IndViaje</code>: ¿qué significa este indicador y cuáles son sus valores posibles?</td></tr>
+<tr><td>11</td><td><code>CustomerCode</code>, <code>Destinatario</code>, <code>SCOP</code>: ¿qué representan en SAP y qué longitud real manejan?</td></tr>
+<tr><td>12</td><td>¿Hay límite máximo de compartimentos por transporte? (El servicio valida que <code>NroCompartimento</code> no se duplique dentro de la orden.)</td></tr>
+</tbody>
+</table>
+
+<h2>2. Interfaz de Confirmación de Carga (3.2) — Servicio Web → SAP</h2>
+<table>
+<thead><tr><th>#</th><th>Pregunta</th></tr></thead>
+<tbody>
+<tr><td>13</td><td><strong>URL exacta del endpoint SAP</strong> que recibirá el POST con el XML de confirmación (por ambiente: dev, qa, prod).</td></tr>
+<tr><td>14</td><td>¿Qué valor de <code>X-API-Key</code> espera SAP en el request de confirmación? (Puede ser distinto al de la interfaz 3.1.)</td></tr>
+<tr><td>15</td><td>Confirmar que el schema XML de salida es correcto (ver anexo al final). ¿Requieren campos adicionales? ¿El campo <code>NroTransporte</code> dentro de cada <code>Detail</code> es necesario o basta con el del <code>Header</code>?</td></tr>
+<tr><td>16</td><td>Formato de decimales: ¿SAP espera punto (<code>.</code>) o coma (<code>,</code>) como separador decimal? Confirmar precisión: <code>Temperatura</code> (6,2), <code>APIDespachado</code> (8,4), <code>VolObservado</code> (16,2), <code>Vol60</code> (16,2).</td></tr>
+<tr><td>17</td><td>¿Qué HTTP status codes devuelve SAP ante una confirmación? Asumimos: 2xx = éxito, 4xx = error no reintentable, 5xx = reintento. ¿Confirman?</td></tr>
+<tr><td>18</td><td>Estrategia de reintentos actual: 3 intentos máximos con backoff 10s / 30s / 60s. Si los 3 fallan, marcamos <em>Error</em>. ¿Les parece adecuado? ¿Tienen ventana de timeout en SAP?</td></tr>
+<tr><td>19</td><td>¿Qué proceso de negocio dispara SAP al recibir la confirmación? (actualiza delivery, goods issue, facturación, etc.)</td></tr>
+<tr><td>20</td><td>¿Existe un procedimiento de conciliación en SAP cuando una confirmación queda en estado <em>Error</em>? ¿O se maneja manualmente por operaciones?</td></tr>
+</tbody>
+</table>
+
+<h2>3. Cancelación de Órdenes</h2>
+<table>
+<thead><tr><th>#</th><th>Pregunta</th></tr></thead>
+<tbody>
+<tr><td>21</td><td>¿SAP enviará cancelaciones a través del endpoint <code>POST /cancelacion</code> o se gestionan por otro canal?</td></tr>
+<tr><td>22</td><td>¿En qué escenarios de negocio SAP cancela una orden? (Recordar: solo aceptamos cancelación en estado <em>Pendiente</em>.)</td></tr>
+</tbody>
+</table>
+
+<h2>4. Conectividad y Seguridad</h2>
+<table>
+<thead><tr><th>#</th><th>Pregunta</th></tr></thead>
+<tbody>
+<tr><td>23</td><td>¿Las comunicaciones SAP ↔ Servicio Web son dentro de la red interna de Petroperú o requieren túnel VPN?</td></tr>
+<tr><td>24</td><td>¿Se requiere TLS (HTTPS)? ¿SAP provee certificado o se usan certificados internos de la organización?</td></tr>
+<tr><td>25</td><td>¿Hay direcciones IP estáticas que debamos whitelistear en ambos extremos?</td></tr>
+<tr><td>26</td><td>¿SAP requiere autenticación mutua TLS (mTLS) además del <code>X-API-Key</code>?</td></tr>
+<tr><td>27</td><td>¿Política de rotación de API Keys? ¿Cada cuánto rotan y quién gestiona las credenciales?</td></tr>
+</tbody>
+</table>
+
+<h2>5. Catálogos y Datos Maestros</h2>
+<table>
+<thead><tr><th>#</th><th>Pregunta</th></tr></thead>
+<tbody>
+<tr><td>28</td><td><code>Terminal</code> y <code>Mayorista</code>: ¿son códigos de SAP (plantas, centros, socios de negocio)? ¿Existe catálogo que debamos validar?</td></tr>
+<tr><td>29</td><td><code>PlacaVeh</code>: ¿proviene del maestro de vehículos / transportistas en SAP? ¿Formato fijo o libre?</td></tr>
+<tr><td>30</td><td><code>NroTransporte</code>: ¿se genera en SAP? ¿Siempre 10 caracteres? ¿Hay riesgo de colisión con números generados en otros sistemas?</td></tr>
+</tbody>
+</table>
+
+<h2>6. Entornos y Pruebas</h2>
+<table>
+<thead><tr><th>#</th><th>Pregunta</th></tr></thead>
+<tbody>
+<tr><td>31</td><td>¿Existe un ambiente SAP de desarrollo / QA para pruebas de integración? Solicitamos URLs y credenciales por ambiente.</td></tr>
+<tr><td>32</td><td>¿Pueden proporcionar un conjunto de datos de prueba con órdenes representativas (anonimizadas)?</td></tr>
+<tr><td>33</td><td>¿Cómo podemos simular envíos de SAP durante el desarrollo? ¿Tienen colecciones Postman / SOAP UI, o herramienta interna?</td></tr>
+<tr><td>34</td><td>¿Hay ventanas de mantenimiento programadas de SAP que debamos considerar para el comportamiento de startup degradado de nuestro servicio?</td></tr>
+</tbody>
+</table>
+
+<h2>7. Proceso, SLA y Go-Live</h2>
+<table>
+<thead><tr><th>#</th><th>Pregunta</th></tr></thead>
+<tbody>
+<tr><td>35</td><td>¿Cuál es el SLA de respuesta esperado para la confirmación 3.2 desde que el SCADA completa el despacho en isla?</td></tr>
+<tr><td>36</td><td>¿Se necesita un acuerdo de recovery ante caída simultánea de ambos sistemas? ¿Orden de arranque recomendada (servicio web → SAP)?</td></tr>
+<tr><td>37</td><td>¿Hay un procedimiento operativo definido cuando SAP rechaza una confirmación con 4xx? ¿Quién corrige y cómo se escala?</td></tr>
+</tbody>
+</table>
+
+<div class="anexo">
+<h3>Anexo — Schema XML actual de la Interfaz 3.2 (Confirmación de Carga)</h3>
+<pre>&lt;ConfirmacionCarga&gt;
+  &lt;Header&gt;
+    &lt;NroTransporte&gt;string&lt;/NroTransporte&gt;
+  &lt;/Header&gt;
+  &lt;Details&gt;
+    &lt;Detail&gt;                          &lt;!-- uno por compartimento --&gt;
+      &lt;NroTransporte&gt;string&lt;/NroTransporte&gt;
+      &lt;NroEntrega&gt;string&lt;/NroEntrega&gt;
+      &lt;NroCompartimento&gt;string&lt;/NroCompartimento&gt;
+      &lt;Producto&gt;string&lt;/Producto&gt;
+      &lt;Temperatura&gt;decimal(6,2)&lt;/Temperatura&gt;
+      &lt;APIDespachado&gt;decimal(8,4)&lt;/APIDespachado&gt;
+      &lt;VolObservado&gt;decimal(16,2)&lt;/VolObservado&gt;
+      &lt;UMVol&gt;string&lt;/UMVol&gt;
+      &lt;Vol60&gt;decimal(16,2)&lt;/Vol60&gt;
+    &lt;/Detail&gt;
+  &lt;/Details&gt;
+&lt;/ConfirmacionCarga&gt;
+</pre>
+</div>
+
+</body>
+</html>

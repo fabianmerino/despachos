@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Arquitectura - Despachos Petroperú</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        h1 { color: #1a237e; border-bottom: 3px solid #1a237e; padding-bottom: 10px; }
+        h2 { color: #283593; margin-top: 40px; border-bottom: 2px solid #c5cae9; padding-bottom: 8px; }
+        .section {
+            background: white;
+            border-radius: 8px;
+            padding: 25px;
+            margin: 25px 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .mermaid {
+            background: #fafafa;
+            border-radius: 6px;
+            padding: 20px;
+            margin: 15px 0;
+            overflow-x: auto;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: left;
+        }
+        th { background: #e8eaf6; font-weight: 600; }
+        tr:nth-child(even) { background: #f5f5f5; }
+        code {
+            background: #e8eaf6;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Consolas', monospace;
+            font-size: 0.9em;
+        }
+        .legend {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            margin: 15px 0;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .color-box {
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+            border: 1px solid #999;
+        }
+    </style>
+</head>
+<body>
+    <h1>Arquitectura y Flujo de Información - Despachos Petroperú</h1>
+    
+    <div class="legend">
+        <div class="legend-item"><div class="color-box" style="background:#e1f5fe"></div> SAP</div>
+        <div class="legend-item"><div class="color-box" style="background:#fff3e0"></div> Servicio Web (.NET 8)</div>
+        <div class="legend-item"><div class="color-box" style="background:#e8f5e9"></div> Base de Datos</div>
+        <div class="legend-item"><div class="color-box" style="background:#fce4ec"></div> Isla de Despacho</div>
+    </div>
+
+    <div class="section">
+        <h2>1. Vista de Componentes</h2>
+        <div class="mermaid">
+graph TB
+    subgraph "SAP ECC"
+        SAP[ SAP ERP ]
+    end
+
+    subgraph "Servicio Web (.NET 8)"
+        API[ Minimal API ]
+        DS[ DespachoService ]
+        CS[ ConfirmacionService ]
+        OW[ OutboxWorker<br/>BackgroundService ]
+        OPC[ OpcUaBackgroundService<br/>BackgroundService ]
+        HK[ HealthChecks ]
+        AK[ ApiKeyMiddleware ]
+    end
+
+    subgraph "Base de Datos"
+        MYSQL[( MySQL 8+ )]
+        subgraph "Tablas"
+            TH[ despachos_header ]
+            TD[ despachos_detail ]
+            TC[ confirmacion_despacho ]
+            TO[ outbox_confirmacion ]
+        end
+    end
+
+    subgraph "Isla de Despacho"
+        ACC[ ACCULOAD ]
+        SCADA[ SCADA System ]
+        OPCS[ OPC-UA Server ]
+    end
+
+    SAP -->|"3.1 Planificación Carga<br/>POST /planificacion (XML)"| API
+    SAP -->|"Cancelación<br/>POST /cancelacion (XML)"| API
+    API -->|"X-API-Key"| AK
+    AK --> DS
+    DS -->|"Guarda Orden"| MYSQL
+    CS -->|"Lee/Encola"| MYSQL
+    OW -->|"Procesa Outbox"| MYSQL
+    OW -->|"3.2 Confirmación Carga<br/>POST HTTP (XML)"| SAP
+    OPC -->|"Subscription<br/>MonitoredItem"| OPCS
+
+    ACC -->|"Modbus"| SCADA
+    SCADA -->|"Consulta parámetros"| MYSQL
+    SCADA -->|"Guarda mediciones"| MYSQL
+    SCADA -->|"Escribe flag completado<br/>NroTransporte|1"| OPCS
+    OPCS -->|"Notificación cambio"| OPC
+    OPC -->|"Channel"| OW
+
+    style SAP fill:#e1f5fe
+    style API fill:#fff3e0
+    style MYSQL fill:#e8f5e9
+    style SCADA fill:#fce4ec
+    style OPCS fill:#fce4ec
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>2. Flujo de Planificación de Carga (Interfaz 3.1)</h2>
+        <div class="mermaid">
+sequenceDiagram
+    autonumber
+    actor SAP
+    participant API as Servicio Web
+    participant DS as DespachoService
+    participant VAL as Validador
+    participant DB as MySQL
+
+    SAP->>API: POST /planificacion<br/>XML (HEADER + DETAILs)
+    Note over API: ApiKeyMiddleware valida X-API-Key
+    API->>DS: ProcesarPlanificacionAsync(xml)
+    DS->>DS: Deserializar XML
+    alt XML mal formado
+        DS-->>API: ValidationErrors(XML)
+        API-->>SAP: 400 BadRequest + ErrorResponse XML
+    end
+    DS->>VAL: ValidarHeader(header)
+    DS->>VAL: ValidarDetails(details)
+    alt Validación fallida
+        DS-->>API: ValidationErrors(campos)
+        API-->>SAP: 400 BadRequest + ErrorResponse XML
+    end
+    DS->>DB: SELECT header por NroTransporte
+    alt Orden existe y Estado != Pendiente
+        DS-->>API: ValidationErrors(NroTransporte, 409)
+        API-->>SAP: 409 Conflict + ErrorResponse XML
+    else Orden existe y Estado == Pendiente
+        DS->>DB: DELETE header existente (cascade)
+    end
+    DS->>DB: INSERT header + details
+    DB-->>DS: Guardado exitoso
+    DS-->>API: DespachoHeader
+    API-->>SAP: 200 OK + PlanificacionResponse XML
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>3. Flujo en Isla de Despacho (SCADA)</h2>
+        <div class="mermaid">
+sequenceDiagram
+    autonumber
+    actor OP as Operario
+    participant ACC as ACCULOAD
+    participant SCADA as SCADA
+    participant DB as MySQL
+    participant OPCS as OPC-UA Server
+
+    OP->>ACC: Ingresa NroTransporte
+    ACC->>SCADA: Lee NroTransporte (Modbus)
+    SCADA->>DB: SELECT orden por NroTransporte
+    DB-->>SCADA: Header + Details (compartimentos)
+    Note over SCADA: Operario carga combustible
+    SCADA->>DB: INSERT confirmacion_despacho<br/>(Temperatura, API, VolObservado, Vol60)
+    SCADA->>OPCS: Write Variable<br/>"NroTransporte|1"
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>4. Flujo de Confirmación de Carga (Interfaz 3.2)</h2>
+        <div class="mermaid">
+sequenceDiagram
+    autonumber
+    participant OPCS as OPC-UA Server
+    participant OPC as OpcUaBackgroundService
+    participant CH as Channel&lt;string&gt;
+    participant OW as OutboxWorker
+    participant CS as ConfirmacionService
+    participant DB as MySQL
+    participant SAP as SAP
+
+    Note over OW: Startup Scan
+    OW->>CS: ObtenerCompletadosPendientesAsync()
+    CS->>DB: SELECT headers Estado=Completado<br/>sin outbox Estado=Enviado
+    DB-->>CS: Lista NroTransportes
+    loop Por cada pendiente
+        OW->>CS: ProcesarDespachoCompletadoAsync(nro)
+        CS->>DB: SELECT header + details + confirmaciones
+        CS->>DB: INSERT outbox_confirmacion (payload XML)
+        CS->>DB: UPDATE header Estado = Completado
+    end
+
+    Note over OPCS,CH: En caliente (subscription)
+    OPCS->>OPC: Notification: "NroTransporte|1"
+    OPC->>OPC: ParseNroTransporte()
+    OPC->>CH: TryWrite(nroTransporte)
+    CH->>OW: ReadAsync()
+    OW->>CS: ProcesarDespachoCompletadoAsync(nro)
+    CS->>DB: INSERT outbox_confirmacion
+    CS->>DB: UPDATE header Estado = Completado
+    OW->>DB: SELECT outbox Estado=Pendiente
+    loop Por cada outbox pendiente
+        OW->>SAP: POST Confirmación XML<br/>X-API-Key
+        alt 2xx Success
+            SAP-->>OW: 200 OK
+            OW->>DB: UPDATE outbox Estado=Enviado
+            OW->>DB: UPDATE header Estado=Confirmado
+        else 5xx / 429
+            OW->>OW: Backoff (10s/30s/60s)<br/>Reintentos++
+            alt Reintentos < 3
+                OW->>SAP: Reintento
+            else Agotado
+                OW->>DB: UPDATE outbox Estado=Error
+            end
+        else 4xx Client Error
+            OW->>DB: UPDATE outbox Estado=Error
+        end
+    end
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>5. Ciclo de Vida de la Orden de Despacho</h2>
+        <div class="mermaid">
+stateDiagram-v2
+    [*] --> Pendiente : SAP envía 3.1
+    Pendiente --> EnProceso : SCADA inicia carga
+    EnProceso --> Completado : SCADA guarda mediciones
+    Completado --> Confirmado : OutboxWorker envía 3.2 a SAP (2xx)
+    Completado --> Error : OutboxWorker agota reintentos o 4xx
+    Pendiente --> Cancelado : POST /cancelacion
+    Pendiente --> Pendiente : SAP reenvía 3.1 (update)
+    Confirmado --> [*]
+    Cancelado --> [*]
+    Error --> [*]
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>6. Modelo de Datos (ERD)</h2>
+        <div class="mermaid">
+erDiagram
+    DESPACHOS_HEADER ||--o{ DESPACHOS_DETAIL : contiene
+    DESPACHOS_HEADER ||--o| CONFIRMACION_DESPACHO : confirma
+    DESPACHOS_HEADER ||--o| OUTBOX_CONFIRMACION : encola
+
+    DESPACHOS_HEADER {
+        string NroTransporte PK "Max 10"
+        string Terminal "Max 20, Req"
+        string Mayorista "Max 20, Req"
+        string PlacaVeh "Max 13, Req"
+        date FechaCarga "Req"
+        string DNI "Max 8, Req"
+        string Destino "Max 20, Req"
+        string IndViaje "Max 1, Req"
+        string BayQueuePriority "Max 16, Req"
+        string Estado "Default: Pendiente"
+        datetime CreadoEn "Req"
+    }
+
+    DESPACHOS_DETAIL {
+        int Id PK
+        string NroTransporte FK
+        string NroEntrega "Max 10, Req"
+        string CustomerCode "Max 16"
+        string Destinatario "Max 16"
+        string SCOP "Max 20"
+        string NroCompartimento "Max 3, Req"
+        string Producto "Max 18, Req"
+        decimal Volumen "16,2, Req"
+        string UMVol "Max 4, Req"
+        decimal API "8,4"
+        string Estado "Default: Pendiente"
+    }
+
+    CONFIRMACION_DESPACHO {
+        string NroTransporte PK,FK
+        string NroCompartimento PK,FK "Max 3"
+        decimal Temperatura "6,2"
+        decimal APIDespachado "8,4"
+        decimal VolObservado "16,2"
+        decimal Vol60 "16,2"
+        datetime FechaCompletado "Req"
+    }
+
+    OUTBOX_CONFIRMACION {
+        int Id PK
+        string NroTransporte FK "Max 10, Req"
+        text Payload "longtext, Req"
+        int Reintentos "Default: 0"
+        int MaxReintentos "Default: 3"
+        string Estado "Default: Pendiente"
+        datetime CreadoEn "Req"
+        datetime UltimoIntentoEn
+    }
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>7. Decisiones Clave de Arquitectura</h2>
+        <table>
+            <tr><th>#</th><th>Decisión</th><th>Descripción</th></tr>
+            <tr><td>1</td><td>MySQL única</td><td>Compartida entre Servicio Web y SCADA. Ambos leen/escriben la misma BD.</td></tr>
+            <tr><td>2</td><td>OPC-UA solo para confirmación</td><td>Sentido SCADA → Servicio Web únicamente. No se notifican nuevas órdenes vía OPC-UA.</td></tr>
+            <tr><td>3</td><td>Subscription OPC-UA</td><td>MonitoredItem con PublishingInterval=1000ms, no polling.</td></tr>
+            <tr><td>4</td><td>Síncrono SAP inbound</td><td>SAP espera respuesta HTTP al enviar 3.1.</td></tr>
+            <tr><td>5</td><td>Outbox pattern</td><td>Tabla outbox_confirmacion con reintentos (3 intentos, backoff 10s/30s/60s).</td></tr>
+            <tr><td>6</td><td>Autenticación API Key</td><td>SAP inbound/outbound usan X-API-Key. OPC-UA usa user/password.</td></tr>
+            <tr><td>7</td><td>Idempotencia</td><td>Duplicado de SAP en estado Pendiente hace update; en otros estados devuelve 409.</td></tr>
+            <tr><td>8</td><td>Startup degradado</td><td>Si OPC-UA no está disponible, el servicio acepta órdenes e intenta reconectar cada 30s.</td></tr>
+            <tr><td>9</td><td>Graceful shutdown</td><td>Drain del worker outbox (timeout 30s). Pendientes en memoria se recuperan vía startup scan.</td></tr>
+            <tr><td>10</td><td>Confirmación idempotente</td><td>HTTP 2xx = Confirmado, 4xx = Error, 5xx = reintento.</td></tr>
+        </table>
+    </div>
+
+    <div class="section">
+        <h2>8. Formato Variable OPC-UA</h2>
+        <p><strong>Nodo:</strong> <code>ns=2;s=Despachos.Completados</code></p>
+        <p><strong>Valor:</strong> <code>"{NroTransporte}|1"</code></p>
+        <p><strong>Ejemplo:</strong> <code>"T001234567|1"</code></p>
+        <p>El servicio parsea el valor, extrae el <code>NroTransporte</code> y lo encola en un <code>Channel&lt;string&gt;</code> para procesamiento por el <code>OutboxWorker</code>.</p>
+    </div>
+
+    <div class="section">
+        <h2>9. Endpoints REST</h2>
+        <table>
+            <tr><th>Método</th><th>Ruta</th><th>Descripción</th><th>Auth</th></tr>
+            <tr><td>POST</td><td><code>/planificacion</code></td><td>Recibe Interfaz 3.1 de SAP</td><td>X-API-Key</td></tr>
+            <tr><td>POST</td><td><code>/cancelacion</code></td><td>Cancela orden en estado Pendiente</td><td>X-API-Key</td></tr>
+            <tr><td>GET</td><td><code>/health</code></td><td>Health checks (MySQL, OPC-UA, Outbox)</td><td>-</td></tr>
+            <tr><td>GET</td><td><code>/health/ready</code></td><td>Readiness probe</td><td>-</td></tr>
+            <tr><td>GET</td><td><code>/health/live</code></td><td>Liveness probe</td><td>-</td></tr>
+        </table>
+    </div>
+
+    <script>
+        mermaid.initialize({ 
+            startOnLoad: true,
+            theme: 'default',
+            sequence: { showSequenceNumbers: true },
+            flowchart: { useMaxWidth: true, htmlLabels: true },
+            er: { useMaxWidth: true }
+        });
+    </script>
+</body>
+</html>

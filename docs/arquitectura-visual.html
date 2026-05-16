@@ -1,0 +1,908 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Arquitectura — Despachos Petroperú</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<style>
+  :root {
+    --red:     #c0392b;
+    --red-dk:  #922b21;
+    --blue:    #1a5276;
+    --blue-lt: #2e86c1;
+    --green:   #1e8449;
+    --green-lt:#27ae60;
+    --orange:  #ca6f1e;
+    --gray:    #566573;
+    --bg:      #f0f3f4;
+    --card:    #ffffff;
+    --border:  #d5d8dc;
+    --text:    #1c2833;
+    --text-lt: #5d6d7e;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    font-family:'Segoe UI',system-ui,sans-serif;
+    background:var(--bg);color:var(--text);
+    line-height:1.6;
+  }
+
+  /* ── HEADER ── */
+  header{
+    background:linear-gradient(135deg,var(--red-dk) 0%,var(--red) 60%,#e74c3c 100%);
+    color:#fff;padding:28px 40px;
+    display:flex;align-items:center;gap:20px;
+    box-shadow:0 3px 10px rgba(0,0,0,.3);
+  }
+  .logo-circle{
+    width:56px;height:56px;border-radius:50%;
+    background:rgba(255,255,255,.2);
+    display:flex;align-items:center;justify-content:center;
+    font-size:24px;font-weight:900;border:2px solid rgba(255,255,255,.5);
+    flex-shrink:0;
+  }
+  header h1{font-size:1.6rem;font-weight:700;letter-spacing:.4px}
+  header p{font-size:.9rem;opacity:.85;margin-top:2px}
+
+  /* ── TABS ── */
+  .tabs{
+    display:flex;gap:0;background:var(--blue);
+    overflow-x:auto;white-space:nowrap;
+  }
+  .tab{
+    padding:12px 22px;color:rgba(255,255,255,.75);
+    cursor:pointer;font-size:.875rem;font-weight:500;
+    border-bottom:3px solid transparent;transition:.2s;
+    flex-shrink:0;
+  }
+  .tab:hover{color:#fff;background:rgba(255,255,255,.08)}
+  .tab.active{color:#fff;border-bottom-color:#f39c12;background:rgba(255,255,255,.12)}
+
+  /* ── CONTENT ── */
+  main{padding:30px 40px;max-width:1600px;margin:0 auto}
+
+  .panel{display:none}
+  .panel.active{display:block}
+
+  /* ── CARDS ── */
+  .card{
+    background:var(--card);border-radius:10px;
+    border:1px solid var(--border);
+    box-shadow:0 2px 8px rgba(0,0,0,.07);
+    padding:28px;margin-bottom:26px;
+  }
+  .card h2{
+    font-size:1.05rem;font-weight:700;
+    color:var(--blue);margin-bottom:16px;
+    padding-bottom:10px;border-bottom:2px solid #d5d8dc;
+    display:flex;align-items:center;gap:8px;
+  }
+  .card h2 .icon{font-size:1.1em}
+
+  /* ── LEGEND ── */
+  .legend{display:flex;flex-wrap:wrap;gap:14px;margin-bottom:20px}
+  .legend-item{display:flex;align-items:center;gap:7px;font-size:.82rem;color:var(--text-lt)}
+  .dot{width:14px;height:14px;border-radius:3px;flex-shrink:0}
+
+  /* ── SVG DIAGRAM ── */
+  .svg-wrap{overflow-x:auto;padding:10px 0}
+  svg text{font-family:'Segoe UI',system-ui,sans-serif}
+
+  /* ── MERMAID ── */
+  .mermaid{
+    background:#fafbfc;border-radius:8px;
+    border:1px solid var(--border);
+    padding:22px;overflow-x:auto;
+    min-height:80px;
+  }
+
+  /* ── TABLES ── */
+  table{width:100%;border-collapse:collapse;font-size:.875rem}
+  th,td{border:1px solid var(--border);padding:10px 14px;text-align:left}
+  th{background:#eaf0fb;font-weight:600;color:var(--blue)}
+  tr:nth-child(even){background:#f8f9fb}
+  td code{background:#e8ecf4;padding:2px 5px;border-radius:3px;font-size:.82rem}
+
+  /* ── GRID ── */
+  .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:22px}
+  @media(max-width:900px){.grid-2{grid-template-columns:1fr}}
+
+  /* ── BADGES ── */
+  .badge{
+    display:inline-block;padding:2px 8px;border-radius:10px;
+    font-size:.76rem;font-weight:600;
+  }
+  .badge-green{background:#d5f5e3;color:#1e8449}
+  .badge-red  {background:#fadbd8;color:#922b21}
+  .badge-blue {background:#d6eaf8;color:#1a5276}
+  .badge-gray {background:#eaecee;color:#566573}
+  .badge-orange{background:#fdebd0;color:#ca6f1e}
+
+  /* ── DECISION LIST ── */
+  .decision{
+    border-left:4px solid var(--blue-lt);
+    background:#eaf4fb;border-radius:0 6px 6px 0;
+    padding:12px 16px;margin:10px 0;font-size:.875rem;
+  }
+  .decision strong{color:var(--blue);display:block;margin-bottom:3px}
+
+  /* ── PRINT ── */
+  .print-btn{
+    position:fixed;bottom:24px;right:24px;
+    background:var(--red);color:#fff;
+    border:none;border-radius:50%;width:52px;height:52px;
+    font-size:1.3rem;cursor:pointer;
+    box-shadow:0 4px 14px rgba(0,0,0,.3);
+    display:flex;align-items:center;justify-content:center;
+    transition:.2s;z-index:100;
+  }
+  .print-btn:hover{background:var(--red-dk);transform:scale(1.05)}
+  @media print{.tabs,.print-btn{display:none}.panel{display:block!important}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo-circle">P</div>
+  <div>
+    <h1>Despachos Petroperú — Arquitectura del Sistema</h1>
+    <p>.NET 9.0 · MySQL · OPC-UA · SAP Integration · Outbox Pattern</p>
+  </div>
+</header>
+
+<div class="tabs">
+  <div class="tab active" onclick="show('overview',this)">Vista General</div>
+  <div class="tab" onclick="show('inbound',this)">Flujo Inbound (3.1)</div>
+  <div class="tab" onclick="show('outbound',this)">Flujo Outbound (3.2)</div>
+  <div class="tab" onclick="show('states',this)">Estados de Orden</div>
+  <div class="tab" onclick="show('data',this)">Modelo de Datos</div>
+  <div class="tab" onclick="show('patterns',this)">Patrones &amp; Decisiones</div>
+</div>
+
+<main>
+
+<!-- ════════════════════════════════════════════════════════════
+     PANEL 1 — VISTA GENERAL
+════════════════════════════════════════════════════════════ -->
+<div id="overview" class="panel active">
+
+  <div class="card">
+    <h2><span class="icon">🗺</span>Diagrama de Contexto del Sistema</h2>
+    <div class="legend">
+      <div class="legend-item"><div class="dot" style="background:#d6eaf8;border:2px solid #2e86c1"></div>SAP ERP</div>
+      <div class="legend-item"><div class="dot" style="background:#fef9e7;border:2px solid #d4ac0d"></div>Despachos API (.NET 9)</div>
+      <div class="legend-item"><div class="dot" style="background:#d5f5e3;border:2px solid #27ae60"></div>Base de Datos MySQL</div>
+      <div class="legend-item"><div class="dot" style="background:#fdedec;border:2px solid #e74c3c"></div>Isla de Despacho</div>
+    </div>
+
+    <div class="svg-wrap">
+    <svg viewBox="0 0 1100 660" width="100%" style="max-width:1100px;display:block;margin:0 auto">
+      <defs>
+        <marker id="arr" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+          <polygon points="0 0, 10 3.5, 0 7" fill="#555"/>
+        </marker>
+        <marker id="arr-blue" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+          <polygon points="0 0, 10 3.5, 0 7" fill="#2e86c1"/>
+        </marker>
+        <marker id="arr-green" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+          <polygon points="0 0, 10 3.5, 0 7" fill="#27ae60"/>
+        </marker>
+        <marker id="arr-red" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+          <polygon points="0 0, 10 3.5, 0 7" fill="#e74c3c"/>
+        </marker>
+        <filter id="shadow">
+          <feDropShadow dx="2" dy="3" stdDeviation="3" flood-opacity="0.12"/>
+        </filter>
+      </defs>
+
+      <!-- ── SAP ── -->
+      <rect x="30" y="220" width="160" height="120" rx="10" fill="#d6eaf8" stroke="#2e86c1" stroke-width="2" filter="url(#shadow)"/>
+      <text x="110" y="262" text-anchor="middle" font-size="30">🏢</text>
+      <text x="110" y="295" text-anchor="middle" font-weight="700" font-size="15" fill="#1a5276">SAP ERP</text>
+      <text x="110" y="315" text-anchor="middle" font-size="11" fill="#2e86c1">ECC / S4HANA</text>
+
+      <!-- ── DESPACHOS API BOX ── -->
+      <rect x="330" y="60" width="440" height="520" rx="12" fill="#fffde7" stroke="#d4ac0d" stroke-width="2" stroke-dasharray="6,3" filter="url(#shadow)"/>
+      <text x="550" y="94" text-anchor="middle" font-weight="700" font-size="13" fill="#7d6608">Despachos API · .NET 9.0 · Puerto 5213</text>
+
+      <!-- Middleware -->
+      <rect x="390" y="108" width="320" height="44" rx="7" fill="#fdfefe" stroke="#d4ac0d" stroke-width="1.5"/>
+      <text x="550" y="128" text-anchor="middle" font-size="12" font-weight="600" fill="#7d6608">ApiKeyMiddleware</text>
+      <text x="550" y="144" text-anchor="middle" font-size="10" fill="#aaa">X-API-Key · Constant-time compare · 401/403 XML</text>
+
+      <!-- Endpoints -->
+      <rect x="390" y="170" width="148" height="64" rx="7" fill="#eaf4fb" stroke="#2e86c1" stroke-width="1.5"/>
+      <text x="464" y="191" text-anchor="middle" font-size="11" font-weight="600" fill="#1a5276">Endpoints REST</text>
+      <text x="464" y="207" text-anchor="middle" font-size="10" fill="#5d6d7e">POST /planificacion</text>
+      <text x="464" y="221" text-anchor="middle" font-size="10" fill="#5d6d7e">POST /cancelacion</text>
+
+      <!-- Health -->
+      <rect x="562" y="170" width="148" height="64" rx="7" fill="#eaf4fb" stroke="#2e86c1" stroke-width="1.5"/>
+      <text x="636" y="191" text-anchor="middle" font-size="11" font-weight="600" fill="#1a5276">Health Endpoints</text>
+      <text x="636" y="207" text-anchor="middle" font-size="10" fill="#5d6d7e">/health  /live  /ready</text>
+      <text x="636" y="221" text-anchor="middle" font-size="10" fill="#5d6d7e">MySQL · OPC-UA · Outbox</text>
+
+      <!-- DespachoService -->
+      <rect x="390" y="254" width="148" height="60" rx="7" fill="#e9f7ef" stroke="#27ae60" stroke-width="1.5"/>
+      <text x="464" y="275" text-anchor="middle" font-size="11" font-weight="600" fill="#1e8449">DespachoService</text>
+      <text x="464" y="291" text-anchor="middle" font-size="10" fill="#5d6d7e">Valida XML (Either)</text>
+      <text x="464" y="305" text-anchor="middle" font-size="10" fill="#5d6d7e">Inserta / Cancela orden</text>
+
+      <!-- ConfirmacionService -->
+      <rect x="562" y="254" width="148" height="60" rx="7" fill="#e9f7ef" stroke="#27ae60" stroke-width="1.5"/>
+      <text x="636" y="275" text-anchor="middle" font-size="11" font-weight="600" fill="#1e8449">ConfirmacionService</text>
+      <text x="636" y="291" text-anchor="middle" font-size="10" fill="#5d6d7e">Arma XML de salida</text>
+      <text x="636" y="305" text-anchor="middle" font-size="10" fill="#5d6d7e">Encola en Outbox</text>
+
+      <!-- OpcUaBackgroundService -->
+      <rect x="390" y="336" width="148" height="74" rx="7" fill="#fdf2e9" stroke="#ca6f1e" stroke-width="1.5"/>
+      <text x="464" y="358" text-anchor="middle" font-size="11" font-weight="600" fill="#ca6f1e">OpcUaBackground</text>
+      <text x="464" y="372" text-anchor="middle" font-size="11" font-weight="600" fill="#ca6f1e">Service</text>
+      <text x="464" y="388" text-anchor="middle" font-size="10" fill="#5d6d7e">Suscripción OPC-UA</text>
+      <text x="464" y="401" text-anchor="middle" font-size="10" fill="#5d6d7e">Reconexión 30s</text>
+
+      <!-- OutboxWorker -->
+      <rect x="562" y="336" width="148" height="74" rx="7" fill="#fdf2e9" stroke="#ca6f1e" stroke-width="1.5"/>
+      <text x="636" y="357" text-anchor="middle" font-size="11" font-weight="600" fill="#ca6f1e">OutboxWorker</text>
+      <text x="636" y="373" text-anchor="middle" font-size="10" fill="#5d6d7e">Startup scan</text>
+      <text x="636" y="388" text-anchor="middle" font-size="10" fill="#5d6d7e">Envía a SAP · Reintentos</text>
+      <text x="636" y="401" text-anchor="middle" font-size="10" fill="#5d6d7e">Backoff 10/30/60s</text>
+
+      <!-- Channel -->
+      <rect x="490" y="428" width="120" height="34" rx="6" fill="#f5eef8" stroke="#8e44ad" stroke-width="1.5"/>
+      <text x="550" y="444" text-anchor="middle" font-size="11" font-weight="600" fill="#6c3483">Channel&lt;string&gt;</text>
+      <text x="550" y="457" text-anchor="middle" font-size="9" fill="#8e44ad">OPC-UA → OutboxWorker</text>
+
+      <!-- DbContext -->
+      <rect x="390" y="482" width="320" height="40" rx="7" fill="#fafbfc" stroke="#d5d8dc" stroke-width="1.5"/>
+      <text x="550" y="497" text-anchor="middle" font-size="11" font-weight="600" fill="#566573">DespachosDbContext</text>
+      <text x="550" y="511" text-anchor="middle" font-size="10" fill="#999">Entity Framework Core + Pomelo (MySQL)</text>
+
+      <!-- ── MySQL ── -->
+      <rect x="350" y="598" width="400" height="50" rx="10" fill="#d5f5e3" stroke="#27ae60" stroke-width="2" filter="url(#shadow)"/>
+      <text x="550" y="621" text-anchor="middle" font-weight="700" font-size="13" fill="#1e8449">🗄  MySQL (compartida)</text>
+      <text x="550" y="637" text-anchor="middle" font-size="10" fill="#1e8449">header · detail · confirmacion_despacho · outbox_confirmacion</text>
+
+      <!-- ── ISLA DESPACHO ── -->
+      <rect x="870" y="60" width="200" height="420" rx="12" fill="#fdedec" stroke="#e74c3c" stroke-width="2" stroke-dasharray="6,3" filter="url(#shadow)"/>
+      <text x="970" y="94" text-anchor="middle" font-weight="700" font-size="12" fill="#922b21">Isla de Despacho</text>
+
+      <!-- ACCULOAD -->
+      <rect x="900" y="108" width="140" height="60" rx="7" fill="#fdfefe" stroke="#e74c3c" stroke-width="1.5"/>
+      <text x="970" y="132" text-anchor="middle" font-size="22">⛽</text>
+      <text x="970" y="155" text-anchor="middle" font-size="12" font-weight="600" fill="#922b21">ACCULOAD</text>
+
+      <!-- SCADA -->
+      <rect x="900" y="188" width="140" height="68" rx="7" fill="#fdfefe" stroke="#e74c3c" stroke-width="1.5"/>
+      <text x="970" y="209" text-anchor="middle" font-size="12" font-weight="600" fill="#922b21">SCADA System</text>
+      <text x="970" y="225" text-anchor="middle" font-size="10" fill="#5d6d7e">Consulta parámetros</text>
+      <text x="970" y="239" text-anchor="middle" font-size="10" fill="#5d6d7e">Guarda mediciones</text>
+      <text x="970" y="253" text-anchor="middle" font-size="10" fill="#5d6d7e">Inserta confirmaciones</text>
+
+      <!-- OPC-UA Server -->
+      <rect x="900" y="276" width="140" height="60" rx="7" fill="#fdfefe" stroke="#e74c3c" stroke-width="1.5"/>
+      <text x="970" y="297" text-anchor="middle" font-size="12" font-weight="600" fill="#922b21">OPC-UA Server</text>
+      <text x="970" y="313" text-anchor="middle" font-size="10" fill="#5d6d7e">ns=2;s=Despachos</text>
+      <text x="970" y="327" text-anchor="middle" font-size="10" fill="#5d6d7e">.Completados</text>
+
+      <!-- Operario -->
+      <rect x="900" y="356" width="140" height="50" rx="7" fill="#f2f3f4" stroke="#aab7b8" stroke-width="1.5"/>
+      <text x="970" y="376" text-anchor="middle" font-size="18">👷</text>
+      <text x="970" y="396" text-anchor="middle" font-size="12" font-weight="600" fill="#566573">Operario</text>
+
+      <!-- ══════════ FLECHAS ══════════ -->
+
+      <!-- SAP → API (3.1 Planificación) -->
+      <path d="M190,260 C260,260 280,260 326,260" stroke="#2e86c1" stroke-width="2" fill="none" marker-end="url(#arr-blue)"/>
+      <rect x="204" y="240" width="118" height="18" rx="3" fill="#d6eaf8" opacity=".9"/>
+      <text x="263" y="253" text-anchor="middle" font-size="9.5" fill="#1a5276" font-weight="600">3.1 POST /planificacion</text>
+      <text x="263" y="271" text-anchor="middle" font-size="9" fill="#2e86c1">XML · X-API-Key</text>
+
+      <!-- API → SAP (response) -->
+      <path d="M326,285 C260,285 220,285 194,285" stroke="#27ae60" stroke-width="1.5" fill="none" stroke-dasharray="5,3" marker-end="url(#arr-green)"/>
+      <text x="263" y="300" text-anchor="middle" font-size="9" fill="#1e8449">200 OK · XML</text>
+
+      <!-- OutboxWorker → SAP (3.2 Confirmación) -->
+      <path d="M190,310 C260,310 280,390 326,390" stroke="#e74c3c" stroke-width="2" fill="none" marker-end="url(#arr-red)"/>
+      <rect x="180" y="310" width="130" height="18" rx="3" fill="#fadbd8" opacity=".9"/>
+      <text x="245" y="323" text-anchor="middle" font-size="9.5" fill="#922b21" font-weight="600">3.2 POST confirmación</text>
+      <text x="245" y="333" text-anchor="middle" font-size="9" fill="#e74c3c">XML · X-API-Key</text>
+
+      <!-- Nota: OutboxWorker apunta a SAP -->
+      <path d="M562,373 C300,373 250,330 194,318" stroke="#e74c3c" stroke-width="1.8" fill="none" marker-end="url(#arr-red)" stroke-dasharray="none"/>
+
+      <!-- DespachoService → DbContext -->
+      <path d="M464,314 L464,482" stroke="#27ae60" stroke-width="1.5" fill="none" marker-end="url(#arr-green)" stroke-dasharray="4,2"/>
+
+      <!-- ConfirmacionService → DbContext -->
+      <path d="M636,314 L636,482" stroke="#27ae60" stroke-width="1.5" fill="none" marker-end="url(#arr-green)" stroke-dasharray="4,2"/>
+
+      <!-- OpcUa → Channel -->
+      <path d="M514,410 L530,428" stroke="#8e44ad" stroke-width="1.5" fill="none" marker-end="url(#arr)"/>
+
+      <!-- Channel → OutboxWorker -->
+      <path d="M570,428 L596,410" stroke="#8e44ad" stroke-width="1.5" fill="none" marker-end="url(#arr)"/>
+
+      <!-- OutboxWorker → DbContext -->
+      <path d="M620,482 L600,476" stroke="#ca6f1e" stroke-width="1.5" fill="none" marker-end="url(#arr)" stroke-dasharray="4,2"/>
+
+      <!-- DbContext → MySQL -->
+      <path d="M550,522 L550,598" stroke="#27ae60" stroke-width="2" fill="none" marker-end="url(#arr-green)"/>
+      <rect x="510" y="548" width="80" height="16" rx="3" fill="#d5f5e3" opacity=".9"/>
+      <text x="550" y="560" text-anchor="middle" font-size="9.5" fill="#1e8449" font-weight="600">EF Core / TCP</text>
+
+      <!-- ACCULOAD → SCADA (Modbus) -->
+      <path d="M970,168 L970,188" stroke="#e74c3c" stroke-width="1.5" fill="none" marker-end="url(#arr-red)"/>
+      <text x="978" y="183" font-size="9" fill="#922b21">Modbus</text>
+
+      <!-- SCADA → MySQL -->
+      <path d="M900,222 C780,222 780,620 750,623" stroke="#e74c3c" stroke-width="1.8" fill="none" stroke-dasharray="5,3" marker-end="url(#arr-red)"/>
+      <rect x="788" y="440" width="100" height="28" rx="4" fill="#fadbd8" opacity=".9"/>
+      <text x="838" y="452" text-anchor="middle" font-size="9" fill="#922b21" font-weight="600">Consulta parámetros</text>
+      <text x="838" y="463" text-anchor="middle" font-size="9" fill="#922b21">Guarda mediciones</text>
+
+      <!-- SCADA → OPC-UA Server -->
+      <path d="M970,256 L970,276" stroke="#e74c3c" stroke-width="1.5" fill="none" marker-end="url(#arr-red)"/>
+      <rect x="862" y="258" width="106" height="16" rx="3" fill="#fadbd8" opacity=".9"/>
+      <text x="915" y="270" text-anchor="middle" font-size="9" fill="#922b21" font-weight="600">NroTransporte|1</text>
+
+      <!-- OPC-UA Server → OpcUaService -->
+      <path d="M900,306 C720,306 550,360 539,336" stroke="#ca6f1e" stroke-width="2" fill="none" marker-end="url(#arr)"/>
+      <rect x="660" y="295" width="110" height="24" rx="4" fill="#fdebd0" opacity=".9"/>
+      <text x="715" y="307" text-anchor="middle" font-size="9.5" fill="#ca6f1e" font-weight="600">OPC-UA Subscription</text>
+      <text x="715" y="317" text-anchor="middle" font-size="9" fill="#ca6f1e">MonitoredItem 1000ms</text>
+
+      <!-- MySQL → SCADA (query) -->
+      <!-- already covered by SCADA → MySQL arrow -->
+
+      <!-- Operario icono nota -->
+      <text x="970" y="445" text-anchor="middle" font-size="9" fill="#566573">ingresa NroTransporte</text>
+
+    </svg>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <h2><span class="icon">⚙</span>Stack Tecnológico</h2>
+      <table>
+        <tr><th>Capa</th><th>Tecnología</th></tr>
+        <tr><td>Runtime</td><td><code>.NET 9.0</code> Minimal APIs</td></tr>
+        <tr><td>ORM</td><td><code>EF Core 9</code> + Pomelo MySQL</td></tr>
+        <tr><td>Base de Datos</td><td><code>MySQL 8+</code> (compartida con SCADA)</td></tr>
+        <tr><td>Protocolo SCADA</td><td><code>OPC-UA</code> (OPCFoundation SDK)</td></tr>
+        <tr><td>Logging</td><td><code>Serilog</code> (consola + archivo rolling)</td></tr>
+        <tr><td>Serialización</td><td>XML nativo + <code>Newtonsoft.Json</code></td></tr>
+        <tr><td>Auth</td><td><code>X-API-Key</code> header (constant-time)</td></tr>
+        <tr><td>Puerto</td><td><code>HTTP :5213</code></td></tr>
+      </table>
+    </div>
+    <div class="card">
+      <h2><span class="icon">🔌</span>Endpoints REST</h2>
+      <table>
+        <tr><th>Método</th><th>Ruta</th><th>Auth</th><th>Descripción</th></tr>
+        <tr>
+          <td><span class="badge badge-blue">POST</span></td>
+          <td><code>/planificacion</code></td>
+          <td><span class="badge badge-red">Key</span></td>
+          <td>Interfaz 3.1 — recibe orden SAP</td>
+        </tr>
+        <tr>
+          <td><span class="badge badge-blue">POST</span></td>
+          <td><code>/cancelacion</code></td>
+          <td><span class="badge badge-red">Key</span></td>
+          <td>Cancela orden en estado Pendiente</td>
+        </tr>
+        <tr>
+          <td><span class="badge badge-green">GET</span></td>
+          <td><code>/health</code></td>
+          <td><span class="badge badge-gray">—</span></td>
+          <td>MySQL + OPC-UA + Outbox</td>
+        </tr>
+        <tr>
+          <td><span class="badge badge-green">GET</span></td>
+          <td><code>/health/live</code></td>
+          <td><span class="badge badge-gray">—</span></td>
+          <td>Liveness probe</td>
+        </tr>
+        <tr>
+          <td><span class="badge badge-green">GET</span></td>
+          <td><code>/health/ready</code></td>
+          <td><span class="badge badge-gray">—</span></td>
+          <td>Readiness probe</td>
+        </tr>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════
+     PANEL 2 — FLUJO INBOUND
+════════════════════════════════════════════════════════════ -->
+<div id="inbound" class="panel">
+  <div class="card">
+    <h2><span class="icon">📥</span>Flujo de Planificación (Inbound — Interfaz 3.1)</h2>
+    <div class="mermaid">
+sequenceDiagram
+    autonumber
+    actor SAP as SAP ERP
+    participant MW  as ApiKeyMiddleware
+    participant EP  as DespachoEndpoints
+    participant DS  as DespachoService
+    participant DB  as MySQL
+
+    SAP->>MW: POST /planificacion<br/>Header: X-API-Key<br/>Body: XML &lt;PlanificacionCarga&gt;
+
+    alt API Key inválida o faltante
+        MW-->>SAP: 401 / 403 XML
+    end
+
+    MW->>EP: request validado
+    EP->>DS: ProcesarPlanificacionAsync(xmlBody)
+
+    DS->>DS: Deserializar XML → PlanificacionCargaXml
+
+    alt XML mal formado
+        DS-->>EP: Either.Left(ValidationErrors)
+        EP-->>SAP: 400 &lt;Errors&gt;&lt;Field&gt;XML inválido&lt;/Field&gt;&lt;/Errors&gt;
+    end
+
+    DS->>DS: Validar Header<br/>(NroTransporte, Terminal, Mayorista,<br/>PlacaVeh, FechaCarga, DNI,<br/>Destino, IndViaje, BayQueuePriority)
+
+    DS->>DS: Validar Details<br/>(Compartimentos únicos,<br/>Volumen > 0, Producto, UMVol)
+
+    alt Errores de validación
+        DS-->>EP: Either.Left(errors)
+        EP-->>SAP: 400 &lt;ErrorResponse&gt; XML
+    end
+
+    DS->>DB: SELECT * FROM despachos_header<br/>WHERE NroTransporte = ?
+
+    alt Existe y Estado != "Pendiente"
+        DS-->>EP: Either.Left(conflict)
+        EP-->>SAP: 409 Conflict XML
+    else Existe y Estado == "Pendiente"
+        DS->>DB: DELETE header (cascade → details)
+        Note over DS,DB: Re-inserción como upsert
+    end
+
+    DS->>DB: INSERT despachos_header<br/>(Estado="Pendiente")
+    DS->>DB: INSERT despachos_detail[] (N compartimentos)
+    DB-->>DS: OK
+    DS-->>EP: Either.Right(DespachoHeader)
+    EP-->>SAP: 200 OK<br/>&lt;PlanificacionResponse&gt;&lt;Status&gt;OK&lt;/Status&gt;
+    </div>
+  </div>
+
+  <div class="card">
+    <h2><span class="icon">📄</span>Estructura XML de Entrada (SAP → API)</h2>
+    <pre style="background:#f8f9fb;border:1px solid #d5d8dc;border-radius:6px;padding:16px;font-size:.82rem;overflow-x:auto">&lt;PlanificacionCarga&gt;
+  &lt;Header&gt;
+    &lt;NroTransporte&gt;T001234567&lt;/NroTransporte&gt;  &lt;!-- PK, max 10 --&gt;
+    &lt;Terminal&gt;LIMA01&lt;/Terminal&gt;
+    &lt;Mayorista&gt;PETROMAX&lt;/Mayorista&gt;
+    &lt;PlacaVeh&gt;ABC-123&lt;/PlacaVeh&gt;
+    &lt;FechaCarga&gt;20260515&lt;/FechaCarga&gt;           &lt;!-- yyyyMMdd --&gt;
+    &lt;DNI&gt;12345678&lt;/DNI&gt;
+    &lt;Destino&gt;LIMA&lt;/Destino&gt;
+    &lt;IndViaje&gt;1&lt;/IndViaje&gt;
+    &lt;BayQueuePriority&gt;NORMAL&lt;/BayQueuePriority&gt;
+  &lt;/Header&gt;
+  &lt;Details&gt;
+    &lt;Detail&gt;
+      &lt;NroTransporte&gt;T001234567&lt;/NroTransporte&gt;
+      &lt;NroEntrega&gt;E0001&lt;/NroEntrega&gt;
+      &lt;NroCompartimento&gt;1&lt;/NroCompartimento&gt;   &lt;!-- único dentro del Header --&gt;
+      &lt;Producto&gt;DIESEL B5&lt;/Producto&gt;
+      &lt;Volumen&gt;3500.00&lt;/Volumen&gt;               &lt;!-- &gt; 0 --&gt;
+      &lt;UMVol&gt;GL&lt;/UMVol&gt;
+      &lt;API&gt;35.4500&lt;/API&gt;                        &lt;!-- opcional --&gt;
+      &lt;CustomerCode&gt;CLI001&lt;/CustomerCode&gt;       &lt;!-- opcional --&gt;
+      &lt;Destinatario&gt;DISTRIB01&lt;/Destinatario&gt;   &lt;!-- opcional --&gt;
+      &lt;SCOP&gt;SC001&lt;/SCOP&gt;                        &lt;!-- opcional --&gt;
+    &lt;/Detail&gt;
+    &lt;!-- ... más compartimentos --&gt;
+  &lt;/Details&gt;
+&lt;/PlanificacionCarga&gt;</pre>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════
+     PANEL 3 — FLUJO OUTBOUND
+════════════════════════════════════════════════════════════ -->
+<div id="outbound" class="panel">
+  <div class="card">
+    <h2><span class="icon">📤</span>Flujo de Confirmación (Outbound — Interfaz 3.2)</h2>
+    <div class="mermaid">
+sequenceDiagram
+    autonumber
+    participant SCADA as SCADA System
+    participant OPCS  as OPC-UA Server<br/>ns=2;s=Despachos.Completados
+    participant OPC   as OpcUaBackgroundService
+    participant CH    as Channel&lt;string&gt;
+    participant OW    as OutboxWorker
+    participant CS    as ConfirmacionService
+    participant DB    as MySQL
+    participant SAP   as SAP ERP
+
+    Note over OW: ═══ Al arrancar (Startup Scan) ═══
+    OW->>CS: ObtenerCompletadosPendientesAsync()
+    CS->>DB: SELECT headers Estado=Completado<br/>sin outbox En estado=Enviado
+    DB-->>CS: Lista de NroTransportes pendientes
+    loop Por cada pendiente
+        OW->>CS: ProcesarDespachoCompletadoAsync(nro)
+        CS->>DB: INSERT outbox (si no existe)
+    end
+
+    Note over OPCS,CH: ═══ En caliente (Subscription OPC-UA) ═══
+    SCADA->>DB: INSERT confirmacion_despacho<br/>(Temperatura, APIDespachado,<br/>VolObservado, Vol60)
+    SCADA->>OPCS: Write "T001234567|1"
+    OPCS->>OPC: MonitoredItem DataChange notification
+    OPC->>OPC: Parsea → NroTransporte = "T001234567"
+    OPC->>CH: TryWrite("T001234567")
+    CH->>OW: ReadAsync() → "T001234567"
+    OW->>CS: ProcesarDespachoCompletadoAsync("T001234567")
+    CS->>DB: SELECT header + details + confirmaciones
+    CS->>CS: Combina datos:<br/>orden original + mediciones SCADA
+    CS->>CS: Serializa → XML &lt;ConfirmacionCarga&gt;
+    CS->>DB: INSERT outbox_confirmacion<br/>(Payload=XML, Estado="Pendiente")
+    CS->>DB: UPDATE despachos_header<br/>Estado = "Completado"
+
+    Note over OW,SAP: ═══ Ciclo Outbox (continuo) ═══
+    OW->>DB: SELECT * FROM outbox_confirmacion<br/>WHERE Estado='Pendiente'
+    loop Por cada outbox pendiente
+        OW->>SAP: POST /sap/confirmacion<br/>X-API-Key: {sap_key}<br/>Body: XML &lt;ConfirmacionCarga&gt;
+        alt 2xx Success
+            SAP-->>OW: 200 OK
+            OW->>DB: UPDATE outbox Estado="Enviado"
+            OW->>DB: UPDATE header Estado="Confirmado"
+        else 4xx Client Error
+            SAP-->>OW: 400/404
+            OW->>DB: UPDATE outbox Estado="Error"<br/>(sin reintentos)
+        else 5xx / 429 / Timeout
+            SAP-->>OW: 500/429/error
+            OW->>OW: Reintentos++ · Backoff
+            Note over OW: Intento 1 → espera 10s<br/>Intento 2 → espera 30s<br/>Intento 3 → espera 60s
+            alt Reintentos < MaxReintentos (3)
+                OW->>SAP: Reintento
+            else Agotado
+                OW->>DB: UPDATE outbox Estado="Error"
+            end
+        end
+    end
+    </div>
+  </div>
+
+  <div class="card">
+    <h2><span class="icon">📄</span>Estructura XML de Salida (API → SAP)</h2>
+    <pre style="background:#f8f9fb;border:1px solid #d5d8dc;border-radius:6px;padding:16px;font-size:.82rem;overflow-x:auto">&lt;ConfirmacionCarga&gt;
+  &lt;Header&gt;
+    &lt;NroTransporte&gt;T001234567&lt;/NroTransporte&gt;
+  &lt;/Header&gt;
+  &lt;Details&gt;
+    &lt;Detail&gt;
+      &lt;NroTransporte&gt;T001234567&lt;/NroTransporte&gt;
+      &lt;NroEntrega&gt;E0001&lt;/NroEntrega&gt;
+      &lt;NroCompartimento&gt;1&lt;/NroCompartimento&gt;
+      &lt;Producto&gt;DIESEL B5&lt;/Producto&gt;
+      &lt;Temperatura&gt;22.50&lt;/Temperatura&gt;         &lt;!-- F2 —  medido por SCADA --&gt;
+      &lt;APIDespachado&gt;35.1200&lt;/APIDespachado&gt;   &lt;!-- F4 —  medido por SCADA --&gt;
+      &lt;VolObservado&gt;3498.75&lt;/VolObservado&gt;     &lt;!-- F2 —  medido por SCADA --&gt;
+      &lt;UMVol&gt;GL&lt;/UMVol&gt;
+      &lt;Vol60&gt;3500.12&lt;/Vol60&gt;                   &lt;!-- F2 —  normalizado a 60°F --&gt;
+    &lt;/Detail&gt;
+    &lt;!-- ... un Detail por compartimento --&gt;
+  &lt;/Details&gt;
+&lt;/ConfirmacionCarga&gt;</pre>
+  </div>
+
+  <div class="card">
+    <h2><span class="icon">🔁</span>Estrategia de Reintentos del Outbox</h2>
+    <table>
+      <tr><th>Intento</th><th>Espera previa</th><th>Condición de disparo</th><th>Resultado si falla</th></tr>
+      <tr><td>1</td><td>—</td><td>Estado = Pendiente</td><td>Intento 2</td></tr>
+      <tr><td>2</td><td>10 segundos</td><td>Reintentos = 1</td><td>Intento 3</td></tr>
+      <tr><td>3</td><td>30 segundos</td><td>Reintentos = 2</td><td>Intento 4</td></tr>
+      <tr><td>4 (último)</td><td>60 segundos</td><td>Reintentos = 3</td><td>Estado = <span class="badge badge-red">Error</span></td></tr>
+      <tr style="background:#d5f5e3"><td colspan="2"><strong>2xx</strong></td><td colspan="2">Estado = <span class="badge badge-green">Enviado</span> · Header = <span class="badge badge-green">Confirmado</span></td></tr>
+      <tr style="background:#fadbd8"><td colspan="2"><strong>4xx</strong></td><td colspan="2">Estado = <span class="badge badge-red">Error</span> inmediato (sin reintentos)</td></tr>
+    </table>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════
+     PANEL 4 — ESTADOS
+════════════════════════════════════════════════════════════ -->
+<div id="states" class="panel">
+  <div class="grid-2">
+    <div class="card">
+      <h2><span class="icon">🔄</span>Ciclo de Vida — despachos_header</h2>
+      <div class="mermaid">
+stateDiagram-v2
+    direction LR
+    [*] --> Pendiente : SAP envía 3.1\nPOST /planificacion
+
+    Pendiente --> Pendiente : SAP reenvía (upsert)\nEstado permanece Pendiente
+
+    Pendiente --> Cancelado : POST /cancelacion\n(solo desde Pendiente)
+
+    Pendiente --> EnProceso : SCADA inicia carga\n(uso futuro)
+
+    EnProceso --> Completado : SCADA guarda mediciones\n+ escribe OPC-UA
+
+    Pendiente --> Completado : SCADA completa sin\npaso por EnProceso
+
+    Completado --> Confirmado : OutboxWorker → SAP\nresponde 2xx
+
+    Completado --> Error : OutboxWorker agota\nreintentos o SAP 4xx
+
+    Confirmado --> [*]
+    Cancelado  --> [*]
+    Error      --> [*]
+      </div>
+    </div>
+    <div class="card">
+      <h2><span class="icon">📬</span>Ciclo de Vida — outbox_confirmacion</h2>
+      <div class="mermaid">
+stateDiagram-v2
+    direction LR
+    [*] --> Pendiente : ConfirmacionService\nINSERT outbox
+
+    Pendiente --> Enviado : HTTP POST SAP\n→ 2xx
+
+    Pendiente --> Error : HTTP POST SAP\n→ 4xx (cliente)
+
+    Pendiente --> Pendiente : HTTP POST SAP\n→ 5xx/timeout\n(reintentos < 3)
+
+    Pendiente --> Error : Reintentos agotados\n(≥ MaxReintentos)
+
+    Enviado --> [*]
+    Error   --> [*]
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2><span class="icon">📊</span>Resumen de Estados</h2>
+    <table>
+      <tr><th>Entidad</th><th>Estado</th><th>Significado</th><th>Transición siguiente</th></tr>
+      <tr><td rowspan="6"><strong>despachos_header</strong></td>
+          <td><span class="badge badge-orange">Pendiente</span></td>
+          <td>Orden recibida, en espera de despacho</td>
+          <td>Completado / Cancelado / EnProceso</td></tr>
+      <tr><td><span class="badge badge-blue">EnProceso</span></td>
+          <td>SCADA iniciando carga (futuro)</td>
+          <td>Completado</td></tr>
+      <tr><td><span class="badge badge-blue">Completado</span></td>
+          <td>SCADA guardó mediciones; confirmación encolada</td>
+          <td>Confirmado / Error</td></tr>
+      <tr><td><span class="badge badge-green">Confirmado</span></td>
+          <td>SAP aceptó la confirmación (3.2)</td>
+          <td>Terminal</td></tr>
+      <tr><td><span class="badge badge-gray">Cancelado</span></td>
+          <td>Cancelado por SAP antes del despacho</td>
+          <td>Terminal</td></tr>
+      <tr><td><span class="badge badge-red">Error</span></td>
+          <td>SAP rechazó o reintentos agotados</td>
+          <td>Terminal</td></tr>
+      <tr><td rowspan="3"><strong>outbox_confirmacion</strong></td>
+          <td><span class="badge badge-orange">Pendiente</span></td>
+          <td>XML encolado, esperando envío a SAP</td>
+          <td>Enviado / Error</td></tr>
+      <tr><td><span class="badge badge-green">Enviado</span></td>
+          <td>SAP respondió 2xx</td>
+          <td>Terminal</td></tr>
+      <tr><td><span class="badge badge-red">Error</span></td>
+          <td>Reintentos agotados o 4xx de SAP</td>
+          <td>Terminal</td></tr>
+    </table>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════
+     PANEL 5 — MODELO DE DATOS
+════════════════════════════════════════════════════════════ -->
+<div id="data" class="panel">
+  <div class="card">
+    <h2><span class="icon">🗄</span>Diagrama Entidad-Relación</h2>
+    <div class="mermaid">
+erDiagram
+    DESPACHOS_HEADER ||--o{ DESPACHOS_DETAIL        : "1:N (compartimentos)"
+    DESPACHOS_HEADER ||--o{ CONFIRMACION_DESPACHO   : "1:N (mediciones SCADA)"
+    DESPACHOS_HEADER ||--o{ OUTBOX_CONFIRMACION     : "1:N (intentos envío SAP)"
+
+    DESPACHOS_HEADER {
+        string  NroTransporte    PK  "max 10 · identificador único de transporte"
+        string  Terminal             "max 20 · requerido"
+        string  Mayorista            "max 20 · requerido"
+        string  PlacaVeh             "max 13 · requerido"
+        date    FechaCarga           "requerido"
+        string  DNI                  "max 8 · requerido"
+        string  Destino              "max 20 · requerido"
+        string  IndViaje             "max 1  · requerido"
+        string  BayQueuePriority     "max 16 · requerido"
+        string  Estado               "Default: Pendiente"
+        datetime CreadoEn           "requerido"
+    }
+
+    DESPACHOS_DETAIL {
+        int     Id               PK  "autoincrement"
+        string  NroTransporte    FK  "→ DESPACHOS_HEADER"
+        string  NroEntrega           "max 10 · requerido"
+        string  NroCompartimento     "max 3  · requerido · UNIQUE(NroTransporte)"
+        string  Producto             "max 18 · requerido"
+        decimal Volumen              "16,2   · requerido · mayor que 0"
+        string  UMVol                "max 4  · requerido"
+        decimal API                  "8,4    · opcional"
+        string  CustomerCode         "max 16 · opcional"
+        string  Destinatario         "max 16 · opcional"
+        string  SCOP                 "max 20 · opcional"
+        string  Estado               "Default: Pendiente"
+    }
+
+    CONFIRMACION_DESPACHO {
+        string  NroTransporte    PK,FK "→ DESPACHOS_HEADER"
+        string  NroCompartimento PK    "max 3"
+        decimal Temperatura            "6,2"
+        decimal APIDespachado          "8,4"
+        decimal VolObservado           "16,2"
+        decimal Vol60                  "16,2"
+        datetime FechaCompletado       "requerido"
+    }
+
+    OUTBOX_CONFIRMACION {
+        int     Id               PK  "autoincrement"
+        string  NroTransporte    FK  "→ DESPACHOS_HEADER · max 10"
+        text    Payload              "XML &lt;ConfirmacionCarga&gt; · longtext"
+        int     Reintentos           "Default: 0"
+        int     MaxReintentos        "Default: 3"
+        string  Estado               "Default: Pendiente"
+        datetime CreadoEn           "requerido"
+        datetime UltimoIntentoEn    "nullable"
+    }
+    </div>
+  </div>
+
+  <div class="card">
+    <h2><span class="icon">🔑</span>Claves e Índices</h2>
+    <table>
+      <tr><th>Tabla</th><th>PK</th><th>FK</th><th>Índice Único</th></tr>
+      <tr><td><code>despachos_header</code></td><td><code>NroTransporte</code></td><td>—</td><td>—</td></tr>
+      <tr><td><code>despachos_detail</code></td><td><code>Id</code> (auto)</td><td><code>NroTransporte</code></td><td><code>(NroTransporte, NroCompartimento)</code></td></tr>
+      <tr><td><code>confirmacion_despacho</code></td><td><code>(NroTransporte, NroCompartimento)</code></td><td><code>NroTransporte</code></td><td>—</td></tr>
+      <tr><td><code>outbox_confirmacion</code></td><td><code>Id</code> (auto)</td><td><code>NroTransporte</code></td><td>—</td></tr>
+    </table>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════
+     PANEL 6 — PATRONES Y DECISIONES
+════════════════════════════════════════════════════════════ -->
+<div id="patterns" class="panel">
+  <div class="card">
+    <h2><span class="icon">🏛</span>Patrones Arquitectónicos</h2>
+    <div class="grid-2">
+      <div>
+        <div class="decision">
+          <strong>Outbox Pattern</strong>
+          Las confirmaciones se persisten en <code>outbox_confirmacion</code> antes de enviarlas a SAP. Garantiza entrega exacta incluso si SAP no responde, sin perder mensajes al reiniciar.
+        </div>
+        <div class="decision">
+          <strong>Either Monad</strong>
+          <code>DespachoService</code> retorna <code>Either&lt;ValidationErrors, DespachoHeader&gt;</code>. Manejo funcional de errores sin excepciones: el caller hace pattern matching para respuesta XML.
+        </div>
+        <div class="decision">
+          <strong>Hosted Services + Channel</strong>
+          <code>OpcUaBackgroundService</code> y <code>OutboxWorker</code> corren como <code>IHostedService</code> en el DI. Se comunican mediante <code>Channel&lt;string&gt;</code> — buffer sin lock, async-first.
+        </div>
+        <div class="decision">
+          <strong>Startup Scan</strong>
+          Al arrancar, <code>OutboxWorker</code> busca órdenes Completadas sin confirmación Enviada. Recupera trabajo perdido si el proceso se cayó entre el OPC-UA y el envío a SAP.
+        </div>
+      </div>
+      <div>
+        <div class="decision">
+          <strong>Graceful Shutdown (30 s)</strong>
+          Al recibir señal de parada, el <code>OutboxWorker</code> drena mensajes pendientes del Channel con timeout de 30 segundos. Los no procesados se recuperan en el próximo arranque vía Startup Scan.
+        </div>
+        <div class="decision">
+          <strong>Reconexión OPC-UA</strong>
+          Si el servidor OPC-UA no está disponible, el servicio continúa aceptando órdenes de SAP. La suscripción se reintenta cada 30 segundos en segundo plano — degradado, no caído.
+        </div>
+        <div class="decision">
+          <strong>Idempotencia Inbound</strong>
+          SAP puede reenviar la misma orden. Si está en estado <code>Pendiente</code> → upsert silencioso. Si está en otro estado → 409 Conflict con razón. Evita duplicados sin perder reenvíos legítimos.
+        </div>
+        <div class="decision">
+          <strong>Constant-time Comparison</strong>
+          La validación del <code>X-API-Key</code> usa comparación de tiempo constante (<code>CryptographicOperations.FixedTimeEquals</code>). Protege contra ataques de timing que podrían filtrar la longitud/contenido de la clave.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2><span class="icon">📋</span>Decisiones de Arquitectura Clave</h2>
+    <table>
+      <tr><th>#</th><th>Decisión</th><th>Alternativa descartada</th><th>Razón</th></tr>
+      <tr><td>1</td><td>MySQL compartida entre API y SCADA</td><td>API separada con réplica</td><td>SCADA ya lee/escribe MySQL; evita sincronización adicional</td></tr>
+      <tr><td>2</td><td>OPC-UA solo en dirección SCADA → API</td><td>OPC-UA bidireccional</td><td>SAP es el maestro de órdenes; no se notifican nuevas órdenes vía OPC-UA</td></tr>
+      <tr><td>3</td><td>Subscription OPC-UA (no polling)</td><td>SELECT periódico en BD</td><td>Latencia sub-segundo sin carga innecesaria en BD</td></tr>
+      <tr><td>4</td><td>SAP inbound síncrono (HTTP Request-Response)</td><td>Cola de mensajes (MQ)</td><td>SAP espera respuesta inmediata para el flujo 3.1</td></tr>
+      <tr><td>5</td><td>Outbox con backoff 10/30/60 s</td><td>Cola en memoria</td><td>Persistencia garantiza entrega tras reinicios; backoff reduce presión en SAP bajo</td></tr>
+      <tr><td>6</td><td>Autenticación por API Key (no OAuth)</td><td>OAuth 2.0 / JWT</td><td>Integración SAP legacy; complejidad de OAuth no justificada para 2 clientes</td></tr>
+      <tr><td>7</td><td>.NET 9 Minimal APIs (no MVC)</td><td>ASP.NET MVC Controllers</td><td>Menos overhead; 5 endpoints simples no justifican el scaffolding de MVC</td></tr>
+      <tr><td>8</td><td>Serilog con sink de archivo rolling</td><td>Solo stdout</td><td>Ambiente industrial sin orquestador de logs; el archivo es la única fuente de verdad</td></tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2><span class="icon">🏥</span>Health Checks</h2>
+    <table>
+      <tr><th>Check</th><th>Endpoint</th><th>Healthy</th><th>Degraded</th><th>Unhealthy</th></tr>
+      <tr>
+        <td><strong>mysql</strong></td>
+        <td><code>/health/ready</code></td>
+        <td>DbContext conectado</td>
+        <td>—</td>
+        <td>Fallo de conexión</td>
+      </tr>
+      <tr>
+        <td><strong>opcua</strong></td>
+        <td><code>/health/ready</code></td>
+        <td>Suscripción activa</td>
+        <td>Servidor no disponible</td>
+        <td>—</td>
+      </tr>
+      <tr>
+        <td><strong>outbox</strong></td>
+        <td><code>/health</code></td>
+        <td>0–10 pendientes</td>
+        <td>&gt; 10 pendientes</td>
+        <td>—</td>
+      </tr>
+    </table>
+  </div>
+</div>
+
+</main>
+
+<button class="print-btn" onclick="window.print()" title="Imprimir / Guardar PDF">🖨</button>
+
+<script>
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: 'base',
+    themeVariables: {
+      primaryColor:       '#d6eaf8',
+      primaryTextColor:   '#1a5276',
+      primaryBorderColor: '#2e86c1',
+      lineColor:          '#5d6d7e',
+      secondaryColor:     '#fef9e7',
+      tertiaryColor:      '#d5f5e3',
+      fontSize:           '13px'
+    },
+    sequence: {
+      showSequenceNumbers: true,
+      actorMargin: 60,
+      width: 160,
+      height: 50,
+      messageMargin: 35,
+      mirrorActors: false,
+      useMaxWidth: true
+    },
+    flowchart: { useMaxWidth: true, htmlLabels: true, curve: 'basis' },
+    er:        { useMaxWidth: true, layoutDirection: 'TB', minEntityWidth: 100 },
+    state:     { useMaxWidth: true }
+  });
+
+  function show(id, tab) {
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+    tab.classList.add('active');
+  }
+</script>
+</body>
+</html>
