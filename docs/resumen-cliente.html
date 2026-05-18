@@ -1,0 +1,1174 @@
+<!DOCTYPE html>
+<html lang="es">
+
+  <head>
+    <meta charset="UTF-8">
+    <title>Resumen del Sistema — Integración Despachos Petroperú</title>
+    <style>
+      :root {
+        --petro: #003d7c;
+        --rojo: #c8102e;
+        --gris: #f4f5f7;
+        --borde: #dcdcdc;
+        --verde: #1a6e35;
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        font-family: 'Segoe UI', Arial, sans-serif;
+        color: #222;
+        line-height: 1.6;
+        max-width: 980px;
+        margin: 0 auto;
+        padding: 2rem 1.5rem;
+      }
+
+      /* ── Header ─────────────────────────────────────────────── */
+      .doc-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        border-bottom: 4px solid var(--rojo);
+        padding-bottom: 1rem;
+        margin-bottom: .4rem;
+      }
+
+      .doc-header h1 {
+        color: var(--petro);
+        font-size: 1.7rem;
+        line-height: 1.2;
+      }
+
+      .doc-header .meta {
+        text-align: right;
+        font-size: .8rem;
+        color: #555;
+        white-space: nowrap;
+        margin-left: 1rem;
+      }
+
+      .sub {
+        color: #555;
+        font-size: .9rem;
+        margin-bottom: 2rem;
+      }
+
+      /* ── Sección ─────────────────────────────────────────────── */
+      h2 {
+        color: var(--petro);
+        font-size: 1.15rem;
+        margin-top: 2.2rem;
+        padding: .45rem .7rem;
+        background: var(--gris);
+        border-left: 4px solid var(--rojo);
+      }
+
+      h3 {
+        color: var(--petro);
+        font-size: 1rem;
+        margin-top: 1.2rem;
+        margin-bottom: .4rem;
+      }
+
+      p {
+        margin: .5rem 0 .8rem;
+      }
+
+      ul,
+      ol {
+        margin: .3rem 0 .8rem 1.4rem;
+      }
+
+      li {
+        margin-bottom: .25rem;
+      }
+
+      /* ── Tabla genérica ──────────────────────────────────────── */
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: .5rem 0 1.5rem;
+        font-size: .85rem;
+      }
+
+      th,
+      td {
+        padding: .5rem .65rem;
+        text-align: left;
+        vertical-align: top;
+        border-bottom: 1px solid var(--borde);
+      }
+
+      th {
+        background: var(--petro);
+        color: #fff;
+        font-weight: 600;
+      }
+
+      tr:nth-child(even) td {
+        background: var(--gris);
+      }
+
+      /* ── Tabla de preguntas ──────────────────────────────────── */
+      .tbl-preg th:first-child {
+        width: 3rem;
+        text-align: center;
+      }
+
+      .tbl-preg td:first-child {
+        text-align: center;
+        font-weight: 700;
+        color: var(--petro);
+      }
+
+      .tbl-preg th:last-child,
+      .tbl-preg td:last-child {
+        width: 9rem;
+        text-align: center;
+      }
+
+      /* ── Badge de estado ─────────────────────────────────────── */
+      .badge {
+        display: inline-block;
+        padding: .15rem .5rem;
+        border-radius: 3px;
+        font-size: .75rem;
+        font-weight: 600;
+        color: #fff;
+      }
+
+      .badge-pend {
+        background: #e08a00;
+      }
+
+      .badge-bloq {
+        background: var(--rojo);
+      }
+
+      .badge-ok {
+        background: var(--verde);
+      }
+
+      /* ── Flujo (steps) ───────────────────────────────────────── */
+      .flow {
+        display: flex;
+        flex-wrap: wrap;
+        gap: .5rem;
+        margin: .6rem 0 1rem;
+      }
+
+      .step {
+        display: flex;
+        align-items: center;
+        gap: .35rem;
+        background: #fff;
+        border: 1px solid var(--borde);
+        border-radius: 4px;
+        padding: .4rem .7rem;
+        font-size: .82rem;
+      }
+
+      .step-num {
+        background: var(--petro);
+        color: #fff;
+        border-radius: 50%;
+        width: 1.3rem;
+        height: 1.3rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: .72rem;
+        font-weight: 700;
+        flex-shrink: 0;
+      }
+
+      .arrow {
+        color: #999;
+        font-size: .8rem;
+      }
+
+      /* ── Estado lifecycle ────────────────────────────────────── */
+      .states {
+        display: flex;
+        flex-wrap: wrap;
+        gap: .4rem;
+        margin: .6rem 0 1rem;
+        align-items: center;
+      }
+
+      .state-box {
+        background: #fff;
+        border: 2px solid var(--petro);
+        border-radius: 4px;
+        padding: .3rem .65rem;
+        font-size: .8rem;
+        font-weight: 600;
+        color: var(--petro);
+      }
+
+      .state-arrow {
+        color: #777;
+        font-size: .9rem;
+      }
+
+      .state-final {
+        border-color: var(--verde);
+        color: var(--verde);
+      }
+
+      .state-error {
+        border-color: var(--rojo);
+        color: var(--rojo);
+      }
+
+      /* ── Nota informativa ────────────────────────────────────── */
+      .nota {
+        background: #fff9e6;
+        border: 1px solid #e6c300;
+        border-radius: 5px;
+        padding: .8rem 1rem;
+        font-size: .85rem;
+        margin: .8rem 0 1.2rem;
+      }
+
+      .nota strong {
+        color: #8b7300;
+      }
+
+      code {
+        background: #eef;
+        border-radius: 3px;
+        padding: .1rem .35rem;
+        font-size: .82rem;
+        font-family: Consolas, monospace;
+      }
+
+      /* ── Resumen ejecutivo ───────────────────────────────────── */
+      .kpi-row {
+        display: flex;
+        gap: 1rem;
+        flex-wrap: wrap;
+        margin: .8rem 0 1.2rem;
+      }
+
+      .kpi {
+        flex: 1 1 160px;
+        background: var(--petro);
+        color: #fff;
+        border-radius: 6px;
+        padding: .8rem 1rem;
+      }
+
+      .kpi .kpi-val {
+        font-size: 1.5rem;
+        font-weight: 700;
+        display: block;
+      }
+
+      .kpi .kpi-lbl {
+        font-size: .78rem;
+        opacity: .85;
+      }
+
+      /* ── Botón imprimir ─────────────────────────────────────── */
+      .btn-print {
+        display: inline-block;
+        margin: 1rem 0 .5rem;
+        padding: .45rem 1.1rem;
+        background: var(--petro);
+        color: #fff;
+        border: none;
+        border-radius: 4px;
+        font-size: .85rem;
+        cursor: pointer;
+        font-family: inherit;
+      }
+
+      .btn-print:hover {
+        background: #002a5c;
+      }
+
+      /* ── Diagrama ────────────────────────────────────────────── */
+      .diagram-wrap {
+        border: 1px solid var(--borde);
+        border-radius: 6px;
+        padding: .5rem;
+        margin: .6rem 0 1.2rem;
+        background: #fafbfc;
+        overflow-x: auto;
+      }
+
+      @media print {
+        body {
+          max-width: 100%;
+          padding: 0;
+          font-size: 11pt;
+        }
+
+        .btn-print {
+          display: none;
+        }
+
+        h2 {
+          background: none !important;
+          border-left: 4px solid #000;
+          page-break-before: always;
+          page-break-after: avoid;
+        }
+
+        h2:first-of-type {
+          page-break-before: avoid;
+        }
+
+        h3 {
+          page-break-after: avoid;
+        }
+
+        .kpi {
+          background: #333 !important;
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
+
+        th {
+          background: #003d7c !important;
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
+
+        tr:nth-child(even) td {
+          background: #eee;
+        }
+
+        .flow,
+        .states {
+          page-break-inside: avoid;
+        }
+
+        .diagram-wrap {
+          page-break-inside: avoid;
+          page-break-before: avoid;
+        }
+
+        table {
+          page-break-inside: auto;
+        }
+
+        tr {
+          page-break-inside: avoid;
+        }
+      }
+    </style>
+  </head>
+
+  <body>
+
+    <!-- ═══ ENCABEZADO ═══════════════════════════════════════════ -->
+    <div class="doc-header">
+      <h1>Sistema de Integración de Despachos<br>
+        <small style="font-size:.65em;font-weight:400;color:#555">Petroperú — Interfaz SAP ↔ Isla de Despacho</small>
+      </h1>
+      <div class="meta">
+        Versión 1.0<br>
+        Mayo 2026<br>
+        Confidencial
+      </div>
+    </div>
+    <p class="sub">Documento de descripción funcional y preguntas abiertas para alineamiento del proyecto.</p>
+    <button class="btn-print" onclick="window.print()">🖨 Imprimir / Guardar como PDF</button>
+
+
+    <!-- ═══ 1. RESUMEN EJECUTIVO ═════════════════════════════════ -->
+    <h2>1. Resumen</h2>
+
+    <p>
+      Se desarrolla un <strong>Servicio Web intermedio</strong> (.NET 9, puerto 5213) que actúa como
+      puente entre el sistema SAP ERP y la <strong>Isla de Despacho</strong> de Petroperú.
+      El servicio recibe las órdenes de planificación de carga desde SAP, las pone a disposición
+      del sistema SCADA para que el operario ejecute la carga física de combustible,
+      y finalmente envía la confirmación de despacho de vuelta a SAP en forma automática.
+    </p>
+
+
+    <!-- ═══ 2. COMPONENTES PRINCIPALES ═══════════════════════════ -->
+    <h2>2. Componentes del Sistema</h2>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Componente</th>
+          <th>Responsabilidad</th>
+          <th>Tecnología</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>SAP ERP</strong></td>
+          <td>Genera órdenes de transporte y recibe confirmaciones de despacho</td>
+          <td>SAP ECC / S/4HANA</td>
+        </tr>
+        <tr>
+          <td><strong>Despachos API</strong></td>
+          <td>Expone endpoints REST para SAP, persiste órdenes, coordina confirmación automática</td>
+          <td>.NET 9, Minimal API</td>
+        </tr>
+        <tr>
+          <td><strong>MySQL</strong></td>
+          <td>Base de datos compartida entre la API y el SCADA. Fuente de verdad de órdenes y confirmaciones</td>
+          <td>MySQL 8+, Entity Framework / Pomelo</td>
+        </tr>
+        <tr>
+          <td><strong>SCADA System</strong></td>
+          <td>Consulta la orden, registra mediciones (temperatura, volumen, API) y señaliza completado</td>
+          <td>Sistema SCADA existente</td>
+        </tr>
+        <tr>
+          <td><strong>OPC-UA Server</strong></td>
+          <td>Canal de señalización de "despacho completado" desde SCADA hacia el servicio web</td>
+          <td>Servidor OPC-UA del SCADA</td>
+        </tr>
+        <tr>
+          <td><strong>ACCULOAD</strong></td>
+          <td>Computadora de flujo que controla la carga física; se comunica con SCADA vía Modbus</td>
+          <td>Hardware existente</td>
+        </tr>
+      </tbody>
+    </table>
+
+
+    <!-- ═══ 3. DIAGRAMA DE ARQUITECTURA ══════════════════════════ -->
+    <h2>3. Diagrama de Arquitectura</h2>
+
+    <div class="diagram-wrap">
+      <img src="./arquitectura.png" alt="Diagrama de arquitectura del sistema de despachos"
+        style="width:100%;height:auto;display:block;" />
+    </div>
+
+
+    <!-- ═══ 4. CÓMO SE USA EL SISTEMA ═══════════════════════════ -->
+    <h2>4. Cómo Se Usa el Sistema</h2>
+
+    <h3>4.1 Planificación de Carga (SAP → Isla)</h3>
+    <p>SAP envía una orden de transporte al servicio antes de que el camión llegue a la isla:</p>
+    <div class="flow">
+      <div class="step"><span class="step-num">1</span> SAP genera orden de transporte</div>
+      <span class="arrow">→</span>
+      <div class="step"><span class="step-num">2</span> POST <code>/planificacion</code> con XML +
+        <code>X-API-Key</code>
+      </div>
+      <span class="arrow">→</span>
+      <div class="step"><span class="step-num">3</span> Validación y persistencia en MySQL</div>
+      <span class="arrow">→</span>
+      <div class="step"><span class="step-num">4</span> Respuesta 200 OK / 400 / 409 a SAP</div>
+    </div>
+    <p>
+      El servicio valida el XML, detecta duplicados (idempotencia) y guarda la orden en estado
+      <code>Pendiente</code>. Si SAP reenvía la misma orden en estado Pendiente, se actualiza;
+      en cualquier otro estado se responde <code>409 Conflict</code>.
+    </p>
+
+    <h3>4.2 Carga Física en Isla</h3>
+    <p>El operario llega a la isla y el SCADA orquesta el proceso sin intervención de SAP:</p>
+    <div class="flow">
+      <div class="step"><span class="step-num">1</span> Operario ingresa NroTransporte en ACCULOAD</div>
+      <span class="arrow">→</span>
+      <div class="step"><span class="step-num">2</span> SCADA lee NroTransporte vía Modbus</div>
+      <span class="arrow">→</span>
+      <div class="step"><span class="step-num">3</span> SCADA consulta la orden en MySQL</div>
+      <span class="arrow">→</span>
+      <div class="step"><span class="step-num">4</span> Operario ejecuta carga de combustible</div>
+      <span class="arrow">→</span>
+      <div class="step"><span class="step-num">5</span> SCADA registra mediciones en MySQL</div>
+      <span class="arrow">→</span>
+      <div class="step"><span class="step-num">6</span> SCADA escribe <code>NroTransporte|1</code> en OPC-UA</div>
+    </div>
+
+    <h3>4.3 Confirmación Automática a SAP (SAP ← Isla)</h3>
+    <p>Al recibir la señal OPC-UA, el servicio construye y envía el XML de confirmación a SAP:</p>
+    <div class="flow">
+      <div class="step"><span class="step-num">1</span> OPC-UA notifica al servicio</div>
+      <span class="arrow">→</span>
+      <div class="step"><span class="step-num">2</span> Se arma XML de confirmación (por compartimento)</div>
+      <span class="arrow">→</span>
+      <div class="step"><span class="step-num">3</span> Registro en tabla <code>outbox_confirmacion</code></div>
+      <span class="arrow">→</span>
+      <div class="step"><span class="step-num">4</span> POST HTTP a SAP con reintentos automáticos</div>
+      <span class="arrow">→</span>
+      <div class="step"><span class="step-num">5</span> Orden pasa a estado <code>Confirmado</code></div>
+    </div>
+    <p>
+      Si SAP no está disponible, el servicio reintenta hasta 3 veces con backoff progresivo
+      (10 s / 30 s / 60 s). Al reiniciar el servicio, un <em>startup scan</em> recupera
+      automáticamente cualquier confirmación pendiente que no se haya enviado.
+    </p>
+
+    <h3>4.4 Cancelación de Orden</h3>
+    <p>
+      SAP puede cancelar una orden enviando <code>POST /cancelacion</code> con el
+      <code>NroTransporte</code>. Solo se acepta cancelación cuando la orden está en estado
+      <code>Pendiente</code> (el camión aún no inició la carga).
+    </p>
+
+
+    <!-- ═══ 4. CICLO DE VIDA DE UNA ORDEN ═══════════════════════ -->
+    <h2>5. Ciclo de Vida de una Orden de Despacho</h2>
+
+    <div class="states">
+      <div class="state-box">Pendiente</div>
+      <span class="state-arrow">→ SCADA inicia carga →</span>
+      <div class="state-box">En Proceso</div>
+      <span class="state-arrow">→ SCADA completa →</span>
+      <div class="state-box">Completado</div>
+      <span class="state-arrow">→ SAP confirma 2xx →</span>
+      <div class="state-box state-final">Confirmado</div>
+    </div>
+    <div class="states">
+      <div class="state-box">Pendiente</div>
+      <span class="state-arrow">→ SAP cancela →</span>
+      <div class="state-box state-error">Cancelado</div>
+    </div>
+    <div class="states">
+      <div class="state-box">Completado</div>
+      <span class="state-arrow">→ SAP rechaza / agota reintentos →</span>
+      <div class="state-box state-error">Error</div>
+    </div>
+
+    <div class="nota">
+      <strong>Nota operativa:</strong> Las órdenes en estado <strong>Error</strong>
+      (SAP rechazó o agotó reintentos) requieren intervención manual para determinar si se
+      reintenta el envío o se escala a operaciones. Este procedimiento debe definirse con el
+      equipo SAP (ver Pregunta 37 en la sección de consultas).
+    </div>
+
+
+    <!-- ═══ 5. SEGURIDAD Y CONECTIVIDAD ════════════════════════ -->
+    <h2>6. Seguridad y Conectividad</h2>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Aspecto</th>
+          <th>Mecanismo actual</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Autenticación SAP → Servicio</td>
+          <td>Header <code>X-API-Key</code> con comparación en tiempo constante (sin timing attacks). Respuesta 401/403
+            en XML.</td>
+        </tr>
+        <tr>
+          <td>Autenticación Servicio → SAP</td>
+          <td>Usuario y contraseña (confirmado en reunión). Mecanismo exacto pendiente: HTTP Basic Auth o login con
+            token — <em>ver Pregunta 14</em>.</td>
+        </tr>
+        <tr>
+          <td>OPC-UA</td>
+          <td>Usuario + contraseña configurados por variable de entorno.</td>
+        </tr>
+        <tr>
+          <td>Base de datos</td>
+          <td>Acceso solo desde red interna; credenciales por variable de entorno.</td>
+        </tr>
+        <tr>
+          <td>TLS / HTTPS</td>
+          <td><em>A confirmar con el cliente</em> (ver Pregunta 24).</td>
+        </tr>
+      </tbody>
+    </table>
+
+
+    <!-- ═══ 6. DISPONIBILIDAD Y RESILIENCIA ═════════════════════ -->
+    <h2>7. Disponibilidad y Resiliencia</h2>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Escenario</th>
+          <th>Comportamiento del servicio</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>OPC-UA no disponible al inicio</td>
+          <td>El servicio arranca en modo degradado, acepta órdenes de SAP e intenta reconectar al OPC-UA cada 30
+            segundos.</td>
+        </tr>
+        <tr>
+          <td>SAP no disponible al enviar confirmación</td>
+          <td>Reintenta hasta 3 veces con backoff 10 s / 30 s / 60 s. Si agota reintentos, marca la confirmación como
+            <em>Error</em>.
+          </td>
+        </tr>
+        <tr>
+          <td>Reinicio del servicio con confirmaciones pendientes</td>
+          <td>Al arrancar, el <em>startup scan</em> detecta y reenvía automáticamente cualquier confirmación no
+            entregada.</td>
+        </tr>
+        <tr>
+          <td>Apagado del servicio</td>
+          <td>Graceful shutdown: espera hasta 30 s para que el worker de outbox termine sus operaciones en curso.</td>
+        </tr>
+        <tr>
+          <td>Health checks</td>
+          <td><code>GET /health</code> reporta estado de MySQL, OPC-UA y cola de outbox. Disponible para monitoreo
+            externo sin autenticación.</td>
+        </tr>
+      </tbody>
+    </table>
+
+
+    <!-- ═══ 7. PREGUNTAS ABIERTAS ════════════════════════════════ -->
+    <h2>8. Preguntas Abiertas</h2>
+
+    <p>Las siguientes preguntas deben resolverse antes del inicio de las pruebas de integración.</p>
+
+    <!-- 8.1 -->
+    <h3>8.1 Planificación de Carga (SAP → Servicio)</h3>
+    <table class="tbl-preg">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Pregunta</th>
+          <th>Prioridad</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>1</td>
+          <td>¿URL base de SAP (dev / qa / prod) desde donde enviarán el POST a <code>/planificacion</code>?
+            ¿Es a través de SAP PI/PO o directo desde S/4HANA?</td>
+          <td><span class="badge badge-bloq">Bloqueante</span></td>
+        </tr>
+        <tr>
+          <td>2</td>
+          <td>¿Qué valor de <code>X-API-Key</code> usará SAP para autenticarse? Necesitamos el valor por cada ambiente.
+          </td>
+          <td><span class="badge badge-bloq">Bloqueante</span></td>
+        </tr>
+        <tr>
+          <td>3</td>
+          <td>¿SAP soporta la lógica de idempotencia? Si reenvían un mismo <code>NroTransporte</code> en estado
+            <em>Pendiente</em>, hacemos update. En cualquier otro estado respondemos <code>409 Conflict</code>.
+            ¿Ese comportamiento es aceptable?
+          </td>
+          <td><span class="badge badge-bloq">Bloqueante</span></td>
+        </tr>
+        <tr>
+          <td>4</td>
+          <td>Confirmar formato de <code>FechaCarga</code>: ¿siempre <code>yyyyMMdd</code> sin hora? ¿En qué zona
+            horaria?</td>
+          <td><span class="badge badge-pend">Alta</span></td>
+        </tr>
+        <tr>
+          <td>6</td>
+          <td><code>UMVol</code>: ¿qué códigos de unidad de medida usa SAP (ej. <code>GAL</code>, <code>L</code>,
+            <code>BBL</code>)? ¿Catálogo disponible?
+          </td>
+          <td><span class="badge badge-pend">Alta</span></td>
+        </tr>
+        <tr>
+          <td>7</td>
+          <td><code>API</code> en el Detail: ¿proviene del maestro de materiales o es calculado por SAP? ¿Es
+            obligatorio?</td>
+          <td><span class="badge badge-pend">Alta</span></td>
+        </tr>
+        <tr>
+          <td>9</td>
+          <td><code>BayQueuePriority</code>: ¿qué valores posibles y qué criterio usa SAP para asignar la prioridad de
+            cola en bahía?</td>
+          <td><span class="badge badge-pend">Alta</span></td>
+        </tr>
+        <tr>
+          <td>12</td>
+          <td>¿Hay un límite máximo de compartimentos por transporte? (El servicio valida que
+            <code>NroCompartimento</code> no se duplique dentro de la misma orden.)
+          </td>
+          <td><span class="badge badge-ok">Media</span></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- 8.2 -->
+    <h3>8.2 Confirmación de Carga (Servicio → SAP)</h3>
+    <table class="tbl-preg">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Pregunta</th>
+          <th>Prioridad</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>13</td>
+          <td><strong>URL exacta del endpoint SAP</strong> que recibirá el POST con el XML de confirmación
+            (por ambiente: dev, qa, prod).</td>
+          <td><span class="badge badge-bloq">Bloqueante</span></td>
+        </tr>
+        <tr>
+          <td>14</td>
+          <td>En la reunión se confirmó que el servicio se autenticará con <strong>usuario y contraseña</strong>
+            al llamar al endpoint SAP de confirmación. ¿Cuál es el mecanismo exacto?
+            <ul style="margin:.4rem 0 0 1.2rem">
+              <li><strong>HTTP Basic Auth</strong>: credenciales en cabecera
+                <code>Authorization: Basic &lt;base64&gt;</code> en cada request.
+              </li>
+              <li><strong>Login con token</strong>: primero se hace POST a una URL de login con user/pass y se obtiene
+                un token Bearer que luego se adjunta en cada request.</li>
+            </ul>
+            Indicar también las credenciales (usuario y contraseña) por ambiente (dev / qa / prod).
+          </td>
+          <td><span class="badge badge-bloq">Bloqueante</span></td>
+        </tr>
+        <tr>
+          <td>16</td>
+          <td>Formato de decimales: ¿SAP espera punto (<code>.</code>) o coma (<code>,</code>) como separador decimal?
+            Precisión actual: Temperatura (6,2) · APIDespachado (8,4) · VolObservado (16,2) · Vol60 (16,2).</td>
+          <td><span class="badge badge-bloq">Bloqueante</span></td>
+        </tr>
+        <tr>
+          <td>17</td>
+          <td>¿Qué HTTP status codes devuelve SAP ante una confirmación?
+            Asumimos: 2xx = éxito, 4xx = error no reintentable, 5xx = reintento. ¿Confirman?</td>
+          <td><span class="badge badge-bloq">Bloqueante</span></td>
+        </tr>
+        <tr>
+          <td>18</td>
+          <td>Estrategia de reintentos actual: 3 intentos máximos con backoff 10 s / 30 s / 60 s.
+            ¿Les parece adecuado? ¿Tienen ventana de timeout en SAP?</td>
+          <td><span class="badge badge-pend">Alta</span></td>
+        </tr>
+        <tr>
+          <td>20</td>
+          <td>¿Existe un procedimiento de conciliación en SAP cuando una confirmación queda en estado
+            <em>Error</em>? ¿O se maneja manualmente por operaciones?
+          </td>
+          <td><span class="badge badge-pend">Alta</span></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- 8.3 -->
+    <h3>8.3 Cancelación de Órdenes</h3>
+    <table class="tbl-preg">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Pregunta</th>
+          <th>Prioridad</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>22</td>
+          <td>¿En qué escenarios de negocio SAP cancela una orden? (Solo aceptamos cancelación en estado
+            <em>Pendiente</em>; si el camión ya inició la carga, se debe coordinar con operaciones.)
+          </td>
+          <td><span class="badge badge-pend">Alta</span></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- 8.4 -->
+    <h3>8.4 Conectividad y Seguridad</h3>
+    <table class="tbl-preg">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Pregunta</th>
+          <th>Prioridad</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>23</td>
+          <td>¿Las comunicaciones SAP ↔ Servicio Web son dentro de la red interna de Petroperú
+            o requieren túnel VPN?</td>
+          <td><span class="badge badge-bloq">Bloqueante</span></td>
+        </tr>
+        <tr>
+          <td>24</td>
+          <td>¿Se requiere TLS (HTTPS)? ¿SAP provee certificado o se usan certificados internos
+            de la organización?</td>
+          <td><span class="badge badge-bloq">Bloqueante</span></td>
+        </tr>
+        <tr>
+          <td>25</td>
+          <td>¿Hay direcciones IP estáticas que debamos whitelistear en ambos extremos?</td>
+          <td><span class="badge badge-pend">Alta</span></td>
+        </tr>
+        <tr>
+          <td>26</td>
+          <td>¿SAP requiere autenticación mutua TLS (mTLS) además del <code>X-API-Key</code>?</td>
+          <td><span class="badge badge-pend">Alta</span></td>
+        </tr>
+        <tr>
+          <td>27</td>
+          <td>¿Política de rotación de API Keys? ¿Cada cuánto rotan y quién gestiona las credenciales?</td>
+          <td><span class="badge badge-ok">Media</span></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- 8.5 -->
+    <h3>8.5 Entornos y Pruebas</h3>
+    <table class="tbl-preg">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Pregunta</th>
+          <th>Prioridad</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>31</td>
+          <td>¿Existe un ambiente SAP de desarrollo / QA para pruebas de integración?
+            Solicitamos URLs y credenciales por ambiente.</td>
+          <td><span class="badge badge-bloq">Bloqueante</span></td>
+        </tr>
+        <tr>
+          <td>32</td>
+          <td>¿Pueden proporcionar un conjunto de datos de prueba con órdenes representativas
+            (anonimizadas)?</td>
+          <td><span class="badge badge-pend">Alta</span></td>
+        </tr>
+        <tr>
+          <td>33</td>
+          <td>¿Cómo podemos simular envíos de SAP durante el desarrollo? ¿Tienen colecciones Postman /
+            SOAP UI, o herramienta interna?</td>
+          <td><span class="badge badge-pend">Alta</span></td>
+        </tr>
+        <tr>
+          <td>34</td>
+          <td>¿Hay ventanas de mantenimiento programadas de SAP que debamos considerar para el
+            comportamiento de startup degradado del servicio?</td>
+          <td><span class="badge badge-ok">Media</span></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- 8.7 -->
+    <h3>8.6 Proceso Operativo, SLA y Go-Live</h3>
+    <table class="tbl-preg">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Pregunta</th>
+          <th>Prioridad</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>35</td>
+          <td>¿Cuál es el SLA de respuesta esperado para la confirmación de carga desde que el SCADA
+            completa el despacho en isla?</td>
+          <td><span class="badge badge-pend">Alta</span></td>
+        </tr>
+        <tr>
+          <td>36</td>
+          <td>¿Se necesita un acuerdo de recuperación ante caída simultánea de ambos sistemas?
+            ¿Orden de arranque recomendada?</td>
+          <td><span class="badge badge-pend">Alta</span></td>
+        </tr>
+        <tr>
+          <td>37</td>
+          <td>¿Hay un procedimiento operativo definido cuando SAP rechaza una confirmación con 4xx?
+            ¿Quién corrige y cómo se escala?</td>
+          <td><span class="badge badge-pend">Alta</span></td>
+        </tr>
+      </tbody>
+    </table>
+
+
+    <!-- ═══ ANEXO A ═════════════════════════════════════════════ -->
+    <h2>Anexo A — Endpoints del Servicio Web</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Método</th>
+          <th>Ruta</th>
+          <th>Descripción</th>
+          <th>Autenticación</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>POST</td>
+          <td><code>/planificacion</code></td>
+          <td>Recibe Planificación de Carga de SAP (XML)</td>
+          <td>X-API-Key</td>
+        </tr>
+        <tr>
+          <td>POST</td>
+          <td><code>/cancelacion</code></td>
+          <td>Cancela orden en estado Pendiente</td>
+          <td>X-API-Key</td>
+        </tr>
+        <tr>
+          <td>GET</td>
+          <td><code>/health</code></td>
+          <td>Estado del servicio (MySQL, OPC-UA, Outbox)</td>
+          <td>—</td>
+        </tr>
+        <tr>
+          <td>GET</td>
+          <td><code>/health/ready</code></td>
+          <td>Readiness probe (orquestador)</td>
+          <td>—</td>
+        </tr>
+        <tr>
+          <td>GET</td>
+          <td><code>/health/live</code></td>
+          <td>Liveness probe (orquestador)</td>
+          <td>—</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- ═══ ANEXO B ═════════════════════════════════════════════ -->
+    <h2>Anexo B — Especificación Oficial de Campos (Petroperú)</h2>
+
+    <h3>B.1 Planificación de Carga — HEADER</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Campo</th>
+          <th>Nombre en XML</th>
+          <th>Descripción</th>
+          <th>Tipo</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Nro. Transporte</td>
+          <td><code>NroTransporte</code></td>
+          <td>Código del transporte</td>
+          <td>CHAR 10</td>
+        </tr>
+        <tr>
+          <td>Terminal</td>
+          <td><code>Terminal</code></td>
+          <td>Código del Terminal RAD (Tabla ZVASD_SCO_EQUIV1)</td>
+          <td>CHAR 20</td>
+        </tr>
+        <tr>
+          <td>Mayorista</td>
+          <td><code>Mayorista</code></td>
+          <td>Código del Mayorista RAD (ZVASD_SCO_EQUIV1)</td>
+          <td>CHAR 20</td>
+        </tr>
+        <tr>
+          <td>Placa vehículo</td>
+          <td><code>PlacaVeh</code></td>
+          <td>Placa del vehículo (ambas placas concatenadas)</td>
+          <td>CHAR 13</td>
+        </tr>
+        <tr>
+          <td>Fecha de carga</td>
+          <td><code>FechaCarga</code></td>
+          <td>Fecha de carga</td>
+          <td>CHAR 8</td>
+        </tr>
+        <tr>
+          <td>DNI conductor</td>
+          <td><code>DNI</code></td>
+          <td>DNI del conductor</td>
+          <td>CHAR 8</td>
+        </tr>
+        <tr>
+          <td>Terminal destino</td>
+          <td><code>Destino</code></td>
+          <td>Terminal destino (ZVASD_SCO_EQUIV1)</td>
+          <td>CHAR 20</td>
+        </tr>
+        <tr>
+          <td>Viaje completo</td>
+          <td><code>IndViaje</code></td>
+          <td>Flag de viaje completo</td>
+          <td>CHAR 1</td>
+        </tr>
+        <tr>
+          <td>Prioridad entrega</td>
+          <td><code>BayQueuePriority</code></td>
+          <td>Prioridad en el despacho</td>
+          <td>CHAR 16</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>B.1 Planificación de Carga — DETAIL</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Campo</th>
+          <th>Nombre en XML</th>
+          <th>Descripción</th>
+          <th>Tipo</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Nro. Transporte</td>
+          <td><code>NroTransporte</code></td>
+          <td>Código del transporte</td>
+          <td>CHAR 10</td>
+        </tr>
+        <tr>
+          <td>Nro. Entrega</td>
+          <td><code>NroEntrega</code></td>
+          <td>Código de la entrega</td>
+          <td>CHAR 10</td>
+        </tr>
+        <tr>
+          <td>Cliente</td>
+          <td><code>CustomerCode</code></td>
+          <td>Código de cliente</td>
+          <td>CHAR 16</td>
+        </tr>
+        <tr>
+          <td>Destinatario</td>
+          <td><code>Destinatario</code></td>
+          <td>Código de Destinatario SAP</td>
+          <td>CHAR 16</td>
+        </tr>
+        <tr>
+          <td>SCOPNumber</td>
+          <td><code>SCOP</code></td>
+          <td>Nro. de SCOP asociado</td>
+          <td>CHAR 20</td>
+        </tr>
+        <tr>
+          <td>Compartimento</td>
+          <td><code>NroCompartimento</code></td>
+          <td>Nro. compartimento</td>
+          <td>CHAR 3</td>
+        </tr>
+        <tr>
+          <td>Producto comercial</td>
+          <td><code>Producto</code></td>
+          <td>Código de material SAP</td>
+          <td>CHAR 18</td>
+        </tr>
+        <tr>
+          <td>Volumen</td>
+          <td><code>Volumen</code></td>
+          <td>Cantidad planificada</td>
+          <td>CHAR 16</td>
+        </tr>
+        <tr>
+          <td>Unidad de medida</td>
+          <td><code>UMVol</code></td>
+          <td>Unidad de medida del compartimento</td>
+          <td>CHAR 4</td>
+        </tr>
+        <tr>
+          <td>API</td>
+          <td><code>API</code></td>
+          <td>API del producto</td>
+          <td>CHAR 16</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>B.2 Confirmación de Carga — HEADER</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Campo</th>
+          <th>Nombre en XML</th>
+          <th>Descripción</th>
+          <th>Tipo</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Nro. Transporte</td>
+          <td><code>NroTransporte</code></td>
+          <td>Código del transporte</td>
+          <td>CHAR 10</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>B.2 Confirmación de Carga — DETAIL</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Campo</th>
+          <th>Nombre en XML</th>
+          <th>Descripción</th>
+          <th>Tipo</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Nro. Transporte</td>
+          <td><code>NroTransporte</code></td>
+          <td>Código del transporte</td>
+          <td>CHAR 10</td>
+        </tr>
+        <tr>
+          <td>Nro. Entrega</td>
+          <td><code>NroEntrega</code></td>
+          <td>Código de la entrega</td>
+          <td>CHAR 10</td>
+        </tr>
+        <tr>
+          <td>Compartimento</td>
+          <td><code>NroCompartimento</code></td>
+          <td>Nro. compartimento</td>
+          <td>CHAR 3</td>
+        </tr>
+        <tr>
+          <td>Producto comercial</td>
+          <td><code>Producto</code></td>
+          <td>Código de material SAP</td>
+          <td>CHAR 18</td>
+        </tr>
+        <tr>
+          <td>T° despachado</td>
+          <td><code>Temperatura</code></td>
+          <td>Temperatura al despacho</td>
+          <td>CHAR 16</td>
+        </tr>
+        <tr>
+          <td>API (*)</td>
+          <td><code>APIDespachado</code></td>
+          <td>API despachado (densidad para GLP)</td>
+          <td>CHAR 16</td>
+        </tr>
+        <tr>
+          <td>Vol. observado</td>
+          <td><code>Vol.DespachadoObs</code></td>
+          <td>Volumen observado despachado</td>
+          <td>CHAR 16</td>
+        </tr>
+        <tr>
+          <td>Unidad de medida</td>
+          <td><code>UMVol</code></td>
+          <td>Unidad de medida de volumen</td>
+          <td>CHAR 4</td>
+        </tr>
+        <tr>
+          <td>Vol. a 60°</td>
+          <td><code>Vol.Despachado60</code></td>
+          <td>Volumen corregido a 60 °F</td>
+          <td>CHAR 16</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p style="color:#888;font-size:.78rem;margin-top:2rem;border-top:1px solid var(--borde);padding-top:.6rem">
+      Mayo 2026 · TGI · Integración Despachos Petroperú v1.0
+    </p>
+
+  </body>
+
+</html>

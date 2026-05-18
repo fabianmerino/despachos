@@ -1,0 +1,237 @@
+<svg viewBox="0 0 1100 660" width="100%" style="max-width:1100px;display:block;margin:0 auto">
+  <defs>
+    <marker id="arr" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#555" />
+    </marker>
+    <marker id="arr-blue" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#2e86c1" />
+    </marker>
+    <marker id="arr-green" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#27ae60" />
+    </marker>
+    <marker id="arr-red" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#e74c3c" />
+    </marker>
+    <filter id="shadow">
+      <feDropShadow dx="2" dy="3" stdDeviation="3" flood-opacity="0.12" />
+    </filter>
+  </defs>
+
+  <!-- ── SAP ── -->
+  <rect x="30" y="220" width="160" height="120" rx="10" fill="#d6eaf8" stroke="#2e86c1"
+    stroke-width="2" filter="url(#shadow)" />
+  <text x="110" y="262" text-anchor="middle" font-size="30">🏢</text>
+  <text x="110" y="295" text-anchor="middle" font-weight="700" font-size="15" fill="#1a5276">SAP ERP</text>
+  <text x="110" y="315" text-anchor="middle" font-size="11" fill="#2e86c1">ECC / S4HANA</text>
+
+  <!-- ── DESPACHOS API BOX ── -->
+  <rect x="330" y="60" width="440" height="520" rx="12" fill="#fffde7" stroke="#d4ac0d"
+    stroke-width="2" stroke-dasharray="6,3" filter="url(#shadow)" />
+  <text x="550" y="94" text-anchor="middle" font-weight="700" font-size="13" fill="#7d6608">Despachos
+    API · .NET 9.0 · Puerto 5213</text>
+
+  <!-- Middleware -->
+  <rect x="390" y="108" width="320" height="44" rx="7" fill="#fdfefe" stroke="#d4ac0d"
+    stroke-width="1.5" />
+  <text x="550" y="128" text-anchor="middle" font-size="12" font-weight="600" fill="#7d6608">
+    ApiKeyMiddleware</text>
+  <text x="550" y="144" text-anchor="middle" font-size="10" fill="#aaa">X-API-Key · Constant-time
+    compare · 401/403 XML</text>
+
+  <!-- Endpoints -->
+  <rect x="390" y="170" width="148" height="64" rx="7" fill="#eaf4fb" stroke="#2e86c1"
+    stroke-width="1.5" />
+  <text x="464" y="191" text-anchor="middle" font-size="11" font-weight="600" fill="#1a5276">Endpoints
+    REST</text>
+  <text x="464" y="207" text-anchor="middle" font-size="10" fill="#5d6d7e">POST /planificacion</text>
+  <text x="464" y="221" text-anchor="middle" font-size="10" fill="#5d6d7e">POST /cancelacion</text>
+
+  <!-- Health -->
+  <rect x="562" y="170" width="148" height="64" rx="7" fill="#eaf4fb" stroke="#2e86c1"
+    stroke-width="1.5" />
+  <text x="636" y="191" text-anchor="middle" font-size="11" font-weight="600" fill="#1a5276">Health
+    Endpoints</text>
+  <text x="636" y="207" text-anchor="middle" font-size="10" fill="#5d6d7e">/health /live /ready</text>
+  <text x="636" y="221" text-anchor="middle" font-size="10" fill="#5d6d7e">MySQL · OPC-UA · Outbox</text>
+
+  <!-- DespachoService -->
+  <rect x="390" y="254" width="148" height="60" rx="7" fill="#e9f7ef" stroke="#27ae60"
+    stroke-width="1.5" />
+  <text x="464" y="275" text-anchor="middle" font-size="11" font-weight="600" fill="#1e8449">
+    DespachoService</text>
+  <text x="464" y="291" text-anchor="middle" font-size="10" fill="#5d6d7e">Valida XML (Either)</text>
+  <text x="464" y="305" text-anchor="middle" font-size="10" fill="#5d6d7e">Inserta / Cancela orden</text>
+
+  <!-- ConfirmacionService -->
+  <rect x="562" y="254" width="148" height="60" rx="7" fill="#e9f7ef" stroke="#27ae60"
+    stroke-width="1.5" />
+  <text x="636" y="275" text-anchor="middle" font-size="11" font-weight="600" fill="#1e8449">
+    ConfirmacionService</text>
+  <text x="636" y="291" text-anchor="middle" font-size="10" fill="#5d6d7e">Arma XML de salida</text>
+  <text x="636" y="305" text-anchor="middle" font-size="10" fill="#5d6d7e">Encola en Outbox</text>
+
+  <!-- OpcUaBackgroundService -->
+  <rect x="390" y="336" width="148" height="74" rx="7" fill="#fdf2e9" stroke="#ca6f1e"
+    stroke-width="1.5" />
+  <text x="464" y="358" text-anchor="middle" font-size="11" font-weight="600" fill="#ca6f1e">
+    OpcUaBackground</text>
+  <text x="464" y="372" text-anchor="middle" font-size="11" font-weight="600" fill="#ca6f1e">Service</text>
+  <text x="464" y="388" text-anchor="middle" font-size="10" fill="#5d6d7e">Suscripción OPC-UA</text>
+  <text x="464" y="401" text-anchor="middle" font-size="10" fill="#5d6d7e">Reconexión 30s</text>
+
+  <!-- OutboxWorker -->
+  <rect x="562" y="336" width="148" height="74" rx="7" fill="#fdf2e9" stroke="#ca6f1e"
+    stroke-width="1.5" />
+  <text x="636" y="357" text-anchor="middle" font-size="11" font-weight="600" fill="#ca6f1e">
+    OutboxWorker</text>
+  <text x="636" y="373" text-anchor="middle" font-size="10" fill="#5d6d7e">Startup scan</text>
+  <text x="636" y="388" text-anchor="middle" font-size="10" fill="#5d6d7e">Envía a SAP · Reintentos</text>
+  <text x="636" y="401" text-anchor="middle" font-size="10" fill="#5d6d7e">Backoff 10/30/60s</text>
+
+  <!-- Channel -->
+  <rect x="490" y="428" width="120" height="34" rx="6" fill="#f5eef8" stroke="#8e44ad"
+    stroke-width="1.5" />
+  <text x="550" y="444" text-anchor="middle" font-size="11" font-weight="600" fill="#6c3483">
+    Channel&lt;string&gt;</text>
+  <text x="550" y="457" text-anchor="middle" font-size="9" fill="#8e44ad">OPC-UA → OutboxWorker</text>
+
+  <!-- DbContext -->
+  <rect x="390" y="482" width="320" height="40" rx="7" fill="#fafbfc" stroke="#d5d8dc"
+    stroke-width="1.5" />
+  <text x="550" y="497" text-anchor="middle" font-size="11" font-weight="600" fill="#566573">
+    DespachosDbContext</text>
+  <text x="550" y="511" text-anchor="middle" font-size="10" fill="#999">Entity Framework Core +
+    Pomelo (MySQL)</text>
+
+  <!-- ── MySQL ── -->
+  <rect x="350" y="598" width="400" height="50" rx="10" fill="#d5f5e3" stroke="#27ae60"
+    stroke-width="2" filter="url(#shadow)" />
+  <text x="550" y="621" text-anchor="middle" font-weight="700" font-size="13" fill="#1e8449">🗄
+    MySQL (compartida)</text>
+  <text x="550" y="637" text-anchor="middle" font-size="10" fill="#1e8449">header · detail ·
+    confirmacion_despacho · outbox_confirmacion</text>
+
+  <!-- ── ISLA DESPACHO ── -->
+  <rect x="870" y="60" width="200" height="420" rx="12" fill="#fdedec" stroke="#e74c3c"
+    stroke-width="2" stroke-dasharray="6,3" filter="url(#shadow)" />
+  <text x="970" y="94" text-anchor="middle" font-weight="700" font-size="12" fill="#922b21">Isla de
+    Despacho</text>
+
+  <!-- ACCULOAD -->
+  <rect x="900" y="108" width="140" height="60" rx="7" fill="#fdfefe" stroke="#e74c3c"
+    stroke-width="1.5" />
+  <text x="970" y="132" text-anchor="middle" font-size="22">⛽</text>
+  <text x="970" y="155" text-anchor="middle" font-size="12" font-weight="600" fill="#922b21">
+    ACCULOAD</text>
+
+  <!-- SCADA -->
+  <rect x="900" y="188" width="140" height="68" rx="7" fill="#fdfefe" stroke="#e74c3c"
+    stroke-width="1.5" />
+  <text x="970" y="209" text-anchor="middle" font-size="12" font-weight="600" fill="#922b21">SCADA
+    System</text>
+  <text x="970" y="225" text-anchor="middle" font-size="10" fill="#5d6d7e">Consulta parámetros</text>
+  <text x="970" y="239" text-anchor="middle" font-size="10" fill="#5d6d7e">Guarda mediciones</text>
+  <text x="970" y="253" text-anchor="middle" font-size="10" fill="#5d6d7e">Inserta confirmaciones</text>
+
+  <!-- OPC-UA Server -->
+  <rect x="900" y="276" width="140" height="60" rx="7" fill="#fdfefe" stroke="#e74c3c"
+    stroke-width="1.5" />
+  <text x="970" y="297" text-anchor="middle" font-size="12" font-weight="600" fill="#922b21">OPC-UA
+    Server</text>
+  <text x="970" y="313" text-anchor="middle" font-size="10" fill="#5d6d7e">ns=2;s=Despachos</text>
+  <text x="970" y="327" text-anchor="middle" font-size="10" fill="#5d6d7e">.Completados</text>
+
+  <!-- Operario -->
+  <rect x="900" y="356" width="140" height="50" rx="7" fill="#f2f3f4" stroke="#aab7b8"
+    stroke-width="1.5" />
+  <text x="970" y="376" text-anchor="middle" font-size="18">👷</text>
+  <text x="970" y="396" text-anchor="middle" font-size="12" font-weight="600" fill="#566573">
+    Operario</text>
+
+  <!-- ══════════ FLECHAS ══════════ -->
+
+  <!-- SAP → API (3.1 Planificación) -->
+  <path d="M190,260 C260,260 280,260 326,260" stroke="#2e86c1" stroke-width="2" fill="none"
+    marker-end="url(#arr-blue)" />
+  <rect x="204" y="240" width="118" height="18" rx="3" fill="#d6eaf8" opacity=".9" />
+  <text x="263" y="253" text-anchor="middle" font-size="9.5" fill="#1a5276" font-weight="600">3.1
+    POST /planificacion</text>
+  <text x="263" y="271" text-anchor="middle" font-size="9" fill="#2e86c1">XML · X-API-Key</text>
+
+  <!-- API → SAP (response) -->
+  <path d="M326,285 C260,285 220,285 194,285" stroke="#27ae60" stroke-width="1.5" fill="none"
+    stroke-dasharray="5,3" marker-end="url(#arr-green)" />
+  <text x="263" y="300" text-anchor="middle" font-size="9" fill="#1e8449">200 OK · XML</text>
+
+  <!-- OutboxWorker → SAP (3.2 Confirmación) -->
+  <path d="M190,310 C260,310 280,390 326,390" stroke="#e74c3c" stroke-width="2" fill="none"
+    marker-end="url(#arr-red)" />
+  <rect x="180" y="310" width="130" height="18" rx="3" fill="#fadbd8" opacity=".9" />
+  <text x="245" y="323" text-anchor="middle" font-size="9.5" fill="#922b21" font-weight="600">3.2
+    POST confirmación</text>
+  <text x="245" y="333" text-anchor="middle" font-size="9" fill="#e74c3c">XML · X-API-Key</text>
+
+  <!-- Nota: OutboxWorker apunta a SAP -->
+  <path d="M562,373 C300,373 250,330 194,318" stroke="#e74c3c" stroke-width="1.8" fill="none"
+    marker-end="url(#arr-red)" stroke-dasharray="none" />
+
+  <!-- DespachoService → DbContext -->
+  <path d="M464,314 L464,482" stroke="#27ae60" stroke-width="1.5" fill="none"
+    marker-end="url(#arr-green)" stroke-dasharray="4,2" />
+
+  <!-- ConfirmacionService → DbContext -->
+  <path d="M636,314 L636,482" stroke="#27ae60" stroke-width="1.5" fill="none"
+    marker-end="url(#arr-green)" stroke-dasharray="4,2" />
+
+  <!-- OpcUa → Channel -->
+  <path d="M514,410 L530,428" stroke="#8e44ad" stroke-width="1.5" fill="none" marker-end="url(#arr)" />
+
+  <!-- Channel → OutboxWorker -->
+  <path d="M570,428 L596,410" stroke="#8e44ad" stroke-width="1.5" fill="none" marker-end="url(#arr)" />
+
+  <!-- OutboxWorker → DbContext -->
+  <path d="M620,482 L600,476" stroke="#ca6f1e" stroke-width="1.5" fill="none" marker-end="url(#arr)"
+    stroke-dasharray="4,2" />
+
+  <!-- DbContext → MySQL -->
+  <path d="M550,522 L550,598" stroke="#27ae60" stroke-width="2" fill="none"
+    marker-end="url(#arr-green)" />
+  <rect x="510" y="548" width="80" height="16" rx="3" fill="#d5f5e3" opacity=".9" />
+  <text x="550" y="560" text-anchor="middle" font-size="9.5" fill="#1e8449" font-weight="600">EF
+    Core / TCP</text>
+
+  <!-- ACCULOAD → SCADA (Modbus) -->
+  <path d="M970,168 L970,188" stroke="#e74c3c" stroke-width="1.5" fill="none"
+    marker-end="url(#arr-red)" />
+  <text x="978" y="183" font-size="9" fill="#922b21">Modbus</text>
+
+  <!-- SCADA → MySQL -->
+  <path d="M900,222 C780,222 780,620 750,623" stroke="#e74c3c" stroke-width="1.8" fill="none"
+    stroke-dasharray="5,3" marker-end="url(#arr-red)" />
+  <rect x="788" y="440" width="100" height="28" rx="4" fill="#fadbd8" opacity=".9" />
+  <text x="838" y="452" text-anchor="middle" font-size="9" fill="#922b21" font-weight="600">Consulta
+    parámetros</text>
+  <text x="838" y="463" text-anchor="middle" font-size="9" fill="#922b21">Guarda mediciones</text>
+
+  <!-- SCADA → OPC-UA Server -->
+  <path d="M970,256 L970,276" stroke="#e74c3c" stroke-width="1.5" fill="none"
+    marker-end="url(#arr-red)" />
+  <rect x="862" y="258" width="106" height="16" rx="3" fill="#fadbd8" opacity=".9" />
+  <text x="915" y="270" text-anchor="middle" font-size="9" fill="#922b21" font-weight="600">
+    NroTransporte|1</text>
+
+  <!-- OPC-UA Server → OpcUaService -->
+  <path d="M900,306 C720,306 550,360 539,336" stroke="#ca6f1e" stroke-width="2" fill="none"
+    marker-end="url(#arr)" />
+  <rect x="660" y="295" width="110" height="24" rx="4" fill="#fdebd0" opacity=".9" />
+  <text x="715" y="307" text-anchor="middle" font-size="9.5" fill="#ca6f1e" font-weight="600">OPC-UA
+    Subscription</text>
+  <text x="715" y="317" text-anchor="middle" font-size="9" fill="#ca6f1e">MonitoredItem 1000ms</text>
+
+  <!-- MySQL → SCADA (query) -->
+  <!-- already covered by SCADA → MySQL arrow -->
+
+  <!-- Operario icono nota -->
+  <text x="970" y="445" text-anchor="middle" font-size="9" fill="#566573">ingresa NroTransporte</text>
+
+</svg>
