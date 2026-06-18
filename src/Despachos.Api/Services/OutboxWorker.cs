@@ -1,7 +1,9 @@
+using System.ServiceModel;
 using System.Threading.Channels;
 using Microsoft.EntityFrameworkCore;
 using Despachos.Api.Data;
 using Despachos.Api.Models;
+using Despachos.Api.SoapSap;
 
 namespace Despachos.Api.Services;
 
@@ -93,86 +95,210 @@ public sealed class OutboxWorker : BackgroundService
     {
         using var scope = _scopeFactory.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<DespachosDbContext>();
+        var confirmacionService = scope.ServiceProvider.GetRequiredService<ConfirmacionService>();
 
         var pendientes = await db.OutboxConfirmaciones
             .Where(o => o.Estado == OutboxEstado.Pendiente)
             .OrderBy(o => o.CreadoEn)
             .ToListAsync(ct);
 
-        var sapUrl = _config["Sap:ConfirmacionUrl"] ?? "http://localhost:8080/sap/confirmacion";
-        var apiKey = _config["Sap:ApiKey"] ?? "";
-        var client = _httpClientFactory.CreateClient("SapClient");
+        if (pendientes.Count == 0)
+            return;
+
+        var sapConfig = ConstruirConfigSap();
+        if (sapConfig is null)
+        {
+            _logger.LogError("Configuracion SAP incompleta (endpoint/creds faltantes). No se envia outbox.");
+            return;
+        }
 
         foreach (var outbox in pendientes)
         {
             ct.ThrowIfCancellationRequested();
-
-            try
-            {
-                var request = new HttpRequestMessage(HttpMethod.Post, sapUrl)
-                {
-                    Content = new StringContent(outbox.Payload, System.Text.Encoding.UTF8, "application/xml")
-                };
-                request.Headers.Add("X-API-Key", apiKey);
-
-                var response = await client.SendAsync(request, ct);
-                outbox.Reintentos++;
-                outbox.UltimoIntentoEn = DateTime.UtcNow;
-
-                if (response.IsSuccessStatusCode)
-                {
-                    outbox.Estado = OutboxEstado.Enviado;
-
-                    var header = await db.DespachosHeaders
-                        .FirstOrDefaultAsync(h => h.NroTransporte == outbox.NroTransporte, ct);
-                    if (header is not null && header.Estado == EstadoDespacho.Completado)
-                        header.Estado = EstadoDespacho.Confirmado;
-
-                    _logger.LogInformation("Confirmacion {NroTransporte} enviada a SAP exitosamente", outbox.NroTransporte);
-                }
-                else if ((int)response.StatusCode >= 500 || response.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
-                {
-                    if (outbox.Reintentos < outbox.MaxReintentos)
-                    {
-                        _logger.LogWarning("SAP error {Status} para {NroTransporte}, reintento {Reintento}/{Max}",
-                            (int)response.StatusCode, outbox.NroTransporte, outbox.Reintentos, outbox.MaxReintentos);
-                        await AplicarBackoffAsync(outbox.Reintentos, ct);
-                    }
-                    else
-                    {
-                        outbox.Estado = OutboxEstado.Error;
-                        _logger.LogError("SAP error {Status} para {NroTransporte} agotado tras {Max} reintentos",
-                            (int)response.StatusCode, outbox.NroTransporte, outbox.MaxReintentos);
-                    }
-                }
-                else
-                {
-                    outbox.Estado = OutboxEstado.Error;
-                    _logger.LogError("SAP error cliente {Status} para {NroTransporte}, no se reintenta",
-                        (int)response.StatusCode, outbox.NroTransporte);
-                }
-            }
-            catch (Exception ex)
-            {
-                outbox.Reintentos++;
-                outbox.UltimoIntentoEn = DateTime.UtcNow;
-
-                if (outbox.Reintentos < outbox.MaxReintentos)
-                {
-                    _logger.LogWarning(ex, "Error envio SAP para {NroTransporte}, reintento {Reintento}/{Max}",
-                        outbox.NroTransporte, outbox.Reintentos, outbox.MaxReintentos);
-                    await AplicarBackoffAsync(outbox.Reintentos, ct);
-                }
-                else
-                {
-                    outbox.Estado = OutboxEstado.Error;
-                    _logger.LogError(ex, "Error envio SAP para {NroTransporte} agotado tras {Max} reintentos",
-                        outbox.NroTransporte, outbox.MaxReintentos);
-                }
-            }
+            await EnviarUnoAsync(outbox, sapConfig, db, confirmacionService, ct);
         }
 
         await db.SaveChangesAsync(ct);
+    }
+
+    private SapSoapConfig? ConstruirConfigSap()
+    {
+        var endpoint = _config["Sap:ConfirmacionEndpoint"];
+        var username = _config["Sap:Username"];
+        var password = _config["Sap:Password"];
+
+        if (string.IsNullOrWhiteSpace(endpoint)
+            || string.IsNullOrWhiteSpace(username)
+            || string.IsNullOrWhiteSpace(password))
+        {
+            return null;
+        }
+
+        var useHttps = endpoint.StartsWith("https", StringComparison.OrdinalIgnoreCase);
+        return new SapSoapConfig(
+            endpoint,
+            username,
+            password,
+            useHttps ? SIS_Confirma_CargaClient.EndpointConfiguration.HTTPS_Port
+                     : SIS_Confirma_CargaClient.EndpointConfiguration.HTTP_Port);
+    }
+
+    private async Task EnviarUnoAsync(OutboxConfirmacion outbox, SapSoapConfig sapConfig,
+        DespachosDbContext db, ConfirmacionService confirmacionService, CancellationToken ct)
+    {
+        SIS_Confirma_CargaClient? client = null;
+        try
+        {
+            var request = await confirmacionService.ConstruirRequestAsync(outbox.NroTransporte, ct);
+            if (request is null)
+            {
+                _logger.LogWarning("No se pudo construir request para {NroTransporte}, marcando error", outbox.NroTransporte);
+                outbox.Estado = OutboxEstado.Error;
+                return;
+            }
+
+            var binding = new BasicHttpBinding
+            {
+                MaxBufferSize = int.MaxValue,
+                MaxReceivedMessageSize = int.MaxValue,
+                ReaderQuotas = System.Xml.XmlDictionaryReaderQuotas.Max,
+                AllowCookies = true,
+                SendTimeout = TimeSpan.FromSeconds(30),
+                ReceiveTimeout = TimeSpan.FromSeconds(30),
+                OpenTimeout = TimeSpan.FromSeconds(30),
+                CloseTimeout = TimeSpan.FromSeconds(15)
+            };
+            if (sapConfig.UseHttps)
+                binding.Security.Mode = BasicHttpSecurityMode.Transport;
+
+            client = new SIS_Confirma_CargaClient(binding, new EndpointAddress(sapConfig.Endpoint));
+            client.ClientCredentials.UserName.UserName = sapConfig.Username;
+            client.ClientCredentials.UserName.Password = sapConfig.Password;
+
+            try
+            {
+                await client.OpenAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "No se pudo abrir canal SOAP a SAP para {NroTransporte}", outbox.NroTransporte);
+                RegistrarFalloTransitorio(outbox);
+                return;
+            }
+
+            SIS_Confirma_CargaResponse response;
+            try
+            {
+                response = await client.SIS_Confirma_CargaAsync(request);
+            }
+            catch (ProtocolException pex)
+            {
+                _logger.LogWarning(pex, "SAP devolvio error HTTP (posible 5xx/auth) para {NroTransporte}, reintento",
+                    outbox.NroTransporte);
+                RegistrarFalloTransitorio(outbox);
+                return;
+            }
+            catch (FaultException fex)
+            {
+                _logger.LogError(fex, "SAP devolvio SOAP Fault para {NroTransporte}, error de negocio no reintenta",
+                    outbox.NroTransporte);
+                outbox.Estado = OutboxEstado.Error;
+                return;
+            }
+            catch (CommunicationException cex)
+            {
+                _logger.LogWarning(cex, "Error de comunicacion SOAP para {NroTransporte}, reintento",
+                    outbox.NroTransporte);
+                RegistrarFalloTransitorio(outbox);
+                return;
+            }
+
+            outbox.Reintentos++;
+            outbox.UltimoIntentoEn = DateTime.UtcNow;
+
+            var returnNode = response?.MT_Confirma_Carga_Response?.Return;
+            var type = returnNode?.TYPE?.Trim().ToUpperInvariant();
+            var message = returnNode?.MESSAGE ?? "";
+
+            if (type == "S")
+            {
+                outbox.Estado = OutboxEstado.Enviado;
+
+                var header = await db.DespachosHeaders
+                    .FirstOrDefaultAsync(h => h.NroTransporte == outbox.NroTransporte, ct);
+                if (header is not null && header.Estado == EstadoDespacho.Completado)
+                    header.Estado = EstadoDespacho.Confirmado;
+
+                _logger.LogInformation(
+                    "Confirmacion {NroTransporte} enviada a SAP exitosamente (Return.TYPE=S)",
+                    outbox.NroTransporte);
+            }
+            else if (type == "W")
+            {
+                outbox.Estado = OutboxEstado.Enviado;
+
+                var header = await db.DespachosHeaders
+                    .FirstOrDefaultAsync(h => h.NroTransporte == outbox.NroTransporte, ct);
+                if (header is not null && header.Estado == EstadoDespacho.Completado)
+                    header.Estado = EstadoDespacho.Confirmado;
+
+                _logger.LogInformation(
+                    "Confirmacion {NroTransporte} enviada a SAP con advertencia (Return.TYPE=W): {Msg}",
+                    outbox.NroTransporte, message);
+            }
+            else
+            {
+                outbox.Estado = OutboxEstado.Error;
+                _logger.LogError(
+                    "Confirmacion {NroTransporte} rechazada por SAP (Return.TYPE={Type}): {Msg}",
+                    outbox.NroTransporte, type ?? "(null)", message);
+            }
+        }
+        catch (Exception ex)
+        {
+            outbox.Reintentos++;
+            outbox.UltimoIntentoEn = DateTime.UtcNow;
+
+            if (outbox.Reintentos < outbox.MaxReintentos)
+            {
+                _logger.LogWarning(ex, "Error envio SAP para {NroTransporte}, reintento {Reintento}/{Max}",
+                    outbox.NroTransporte, outbox.Reintentos, outbox.MaxReintentos);
+                await AplicarBackoffAsync(outbox.Reintentos, ct);
+            }
+            else
+            {
+                outbox.Estado = OutboxEstado.Error;
+                _logger.LogError(ex, "Error envio SAP para {NroTransporte} agotado tras {Max} reintentos",
+                    outbox.NroTransporte, outbox.MaxReintentos);
+            }
+        }
+        finally
+        {
+            if (client is not null)
+            {
+                try
+                {
+                    if (client.State == CommunicationState.Opened
+                        || client.State == CommunicationState.Opening)
+                        await client.CloseAsync();
+                    else
+                        client.Abort();
+                }
+                catch
+                {
+                    client.Abort();
+                }
+            }
+        }
+    }
+
+    private static void RegistrarFalloTransitorio(OutboxConfirmacion outbox)
+    {
+        outbox.Reintentos++;
+        outbox.UltimoIntentoEn = DateTime.UtcNow;
+
+        if (outbox.Reintentos >= outbox.MaxReintentos)
+            outbox.Estado = OutboxEstado.Error;
     }
 
     private static async Task AplicarBackoffAsync(int reintento, CancellationToken ct)
@@ -185,5 +311,14 @@ public sealed class OutboxWorker : BackgroundService
             _ => TimeSpan.FromSeconds(60)
         };
         await Task.Delay(delay, ct);
+    }
+
+    private sealed record SapSoapConfig(
+        string Endpoint,
+        string Username,
+        string Password,
+        SIS_Confirma_CargaClient.EndpointConfiguration EndpointKind)
+    {
+        public bool UseHttps => EndpointKind == SIS_Confirma_CargaClient.EndpointConfiguration.HTTPS_Port;
     }
 }

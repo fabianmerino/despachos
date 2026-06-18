@@ -1,9 +1,11 @@
 using Serilog;
 using Microsoft.EntityFrameworkCore;
+using SoapCore;
 using Despachos.Api.Data;
 using Despachos.Api.Endpoints;
 using Despachos.Api.Middleware;
 using Despachos.Api.Services;
+using Despachos.Api.SoapInbound;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -31,16 +33,10 @@ builder.Services.AddHealthChecks()
     .AddCheck<OpcUaHealthCheck>("opcua", tags: new[] { "ready" })
     .AddCheck<OutboxHealthCheck>("outbox", tags: new[] { "ready" });
 
-builder.Services.AddHttpClient("SapClient", client =>
-{
-    client.Timeout = TimeSpan.FromSeconds(30);
-    client.DefaultRequestHeaders.Accept.Add(
-        new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/xml"));
-});
-
 builder.Services.AddSingleton<DespachoService>();
 builder.Services.AddSingleton<ConfirmacionService>();
 builder.Services.AddSingleton<OpcUaBackgroundService>();
+builder.Services.AddScoped<IPlanificaCargaService, PlanificaCargaService>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<OpcUaBackgroundService>());
 builder.Services.AddHostedService<OutboxWorker>();
 builder.Services.Configure<HostOptions>(options =>
@@ -50,9 +46,14 @@ builder.Services.Configure<HostOptions>(options =>
 
 var app = builder.Build();
 
-app.UseMiddleware<ApiKeyMiddleware>();
+app.UseMiddleware<BasicAuthMiddleware>();
 
-app.MapDespachoEndpoints();
+IApplicationBuilder appBuilder = app;
+appBuilder.UseSoapEndpoint<IPlanificaCargaService>(
+    "/soap/planificacion-carga",
+    new SoapEncoderOptions(),
+    SoapSerializer.XmlSerializer);
+
 app.MapHealthEndpoints();
 
 using (var scope = app.Services.CreateScope())

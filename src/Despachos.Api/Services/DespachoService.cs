@@ -1,8 +1,8 @@
-using System.Xml.Serialization;
 using System.Text;
 using Microsoft.EntityFrameworkCore;
 using Despachos.Api.Data;
 using Despachos.Api.Models;
+using Despachos.Api.SoapInbound;
 
 namespace Despachos.Api.Services;
 
@@ -18,87 +18,80 @@ public sealed class DespachoService
     }
 
     public async Task<Either<ValidationErrors, DespachoHeader>> ProcesarPlanificacionAsync(
-        string xmlBody, CancellationToken ct)
+        MT_Planifica_Carga_Request request, CancellationToken ct)
     {
-        PlanificacionCargaXml planificacion;
-        try
-        {
-            var serializer = new XmlSerializer(typeof(PlanificacionCargaXml));
-            using var reader = new StringReader(xmlBody);
-            planificacion = (PlanificacionCargaXml)serializer.Deserialize(reader)!;
-        }
-        catch (InvalidOperationException ex)
-        {
-            _logger.LogWarning(ex, "XML mal formado en planificacion");
-            return new ValidationErrors { new("XML", "XML mal formado o estructura invalida") };
-        }
+        if (request is null)
+            return new ValidationErrors { new("Request", "Request nulo") };
 
-        var header = planificacion.Header;
-        if (header is null)
-            return new ValidationErrors { new("Header", "Header es obligatorio") };
+        var errors = ValidarHeader(request);
 
-        var errors = ValidarHeader(header);
-        if (planificacion.Details is null || planificacion.Details.Count == 0)
-            errors.Add(new("Details", "Se requiere al menos un Detail"));
+        var items = (request.Detalle?.SelectMany(d => d ?? Array.Empty<DT_Planifica_Carga_DetItem>())
+            ?? Enumerable.Empty<DT_Planifica_Carga_DetItem>()).ToList();
+
+        if (items.Count == 0)
+            errors.Add(new("Detalle", "Se requiere al menos un item en Detalle"));
         else
-            errors.AddRange(ValidarDetails(planificacion.Details));
+            errors.AddRange(ValidarDetails(items));
 
         if (errors.Count > 0)
             return errors;
 
-        if (!DateTime.TryParseExact(header.FechaCarga, "yyyyMMdd", null,
+        if (!DateTime.TryParseExact(request.I_FECHA_CARGA, "yyyyMMdd", null,
                 System.Globalization.DateTimeStyles.None, out var fechaCarga))
-            return new ValidationErrors { new("FechaCarga", $"Formato invalido: {header.FechaCarga}. Esperado: yyyyMMdd") };
+            return new ValidationErrors { new("I_FECHA_CARGA",
+                $"Formato invalido: {request.I_FECHA_CARGA}. Esperado: yyyyMMdd") };
+
+        var nroTransporte = request.I_NRO_TRANSPORTE!;
 
         var existing = await _db.DespachosHeaders
             .Include(h => h.Details)
-            .FirstOrDefaultAsync(h => h.NroTransporte == header.NroTransporte, ct);
+            .FirstOrDefaultAsync(h => h.NroTransporte == nroTransporte, ct);
 
         if (existing is not null)
         {
             if (existing.Estado != EstadoDespacho.Pendiente)
-                return new ValidationErrors { new("NroTransporte",
-                    $"Orden {header.NroTransporte} en estado {existing.Estado}, no se puede modificar") };
+                return new ValidationErrors { new("I_NRO_TRANSPORTE",
+                    $"Orden {nroTransporte} en estado {existing.Estado}, no se puede modificar") };
 
             _db.DespachosHeaders.Remove(existing);
-            _logger.LogInformation("Actualizando orden existente {NroTransporte}", header.NroTransporte);
+            _logger.LogInformation("Actualizando orden existente {NroTransporte}", nroTransporte);
         }
 
-        var order = MapToEntity(header, fechaCarga, planificacion.Details!);
+        var order = MapToEntity(request, fechaCarga, items);
         _db.DespachosHeaders.Add(order);
         await _db.SaveChangesAsync(ct);
 
         _logger.LogInformation("Orden {NroTransporte} guardada con {Count} compartimentos",
-            header.NroTransporte, planificacion.Details!.Count);
+            nroTransporte, items.Count);
 
         return order;
     }
 
-    private static ValidationErrors ValidarHeader(PlanificacionHeaderXml h)
+    private static ValidationErrors ValidarHeader(MT_Planifica_Carga_Request h)
     {
         var errors = new ValidationErrors();
-        if (string.IsNullOrWhiteSpace(h.NroTransporte))
-            errors.Add(new("NroTransporte", "Requerido"));
-        if (string.IsNullOrWhiteSpace(h.Terminal))
-            errors.Add(new("Terminal", "Requerido"));
-        if (string.IsNullOrWhiteSpace(h.Mayorista))
-            errors.Add(new("Mayorista", "Requerido"));
-        if (string.IsNullOrWhiteSpace(h.PlacaVeh))
-            errors.Add(new("PlacaVeh", "Requerido"));
-        if (string.IsNullOrWhiteSpace(h.FechaCarga))
-            errors.Add(new("FechaCarga", "Requerido"));
-        if (string.IsNullOrWhiteSpace(h.DNI))
-            errors.Add(new("DNI", "Requerido"));
-        if (string.IsNullOrWhiteSpace(h.Destino))
-            errors.Add(new("Destino", "Requerido"));
-        if (string.IsNullOrWhiteSpace(h.IndViaje))
-            errors.Add(new("IndViaje", "Requerido"));
-        if (string.IsNullOrWhiteSpace(h.BayQueuePriority))
-            errors.Add(new("BayQueuePriority", "Requerido"));
+        if (string.IsNullOrWhiteSpace(h.I_NRO_TRANSPORTE))
+            errors.Add(new("I_NRO_TRANSPORTE", "Requerido"));
+        if (string.IsNullOrWhiteSpace(h.I_TERMINAL))
+            errors.Add(new("I_TERMINAL", "Requerido"));
+        if (string.IsNullOrWhiteSpace(h.I_MAYORISTA))
+            errors.Add(new("I_MAYORISTA", "Requerido"));
+        if (string.IsNullOrWhiteSpace(h.I_PLACA_VEH))
+            errors.Add(new("I_PLACA_VEH", "Requerido"));
+        if (string.IsNullOrWhiteSpace(h.I_FECHA_CARGA))
+            errors.Add(new("I_FECHA_CARGA", "Requerido"));
+        if (string.IsNullOrWhiteSpace(h.I_DNI))
+            errors.Add(new("I_DNI", "Requerido"));
+        if (string.IsNullOrWhiteSpace(h.I_DESTINO))
+            errors.Add(new("I_DESTINO", "Requerido"));
+        if (string.IsNullOrWhiteSpace(h.I_IND_VIAJE))
+            errors.Add(new("I_IND_VIAJE", "Requerido"));
+        if (string.IsNullOrWhiteSpace(h.I_BAY_QUEUE_PRIORITY))
+            errors.Add(new("I_BAY_QUEUE_PRIORITY", "Requerido"));
         return errors;
     }
 
-    private static ValidationErrors ValidarDetails(List<PlanificacionDetailXml> details)
+    private static ValidationErrors ValidarDetails(List<DT_Planifica_Carga_DetItem> details)
     {
         var errors = new ValidationErrors();
         var compartimentos = new HashSet<string>();
@@ -106,50 +99,50 @@ public sealed class DespachoService
         for (int i = 0; i < details.Count; i++)
         {
             var d = details[i];
-            var prefix = $"Detail[{i}].";
+            var prefix = $"Detalle[{i}].";
 
-            if (string.IsNullOrWhiteSpace(d.NroCompartimento))
-                errors.Add(new($"{prefix}NroCompartimento", "Requerido"));
-            else if (!compartimentos.Add(d.NroCompartimento))
-                errors.Add(new($"{prefix}NroCompartimento", $"Duplicado: {d.NroCompartimento}"));
+            if (string.IsNullOrWhiteSpace(d.COMPARTIMENTO))
+                errors.Add(new($"{prefix}COMPARTIMENTO", "Requerido"));
+            else if (!compartimentos.Add(d.COMPARTIMENTO))
+                errors.Add(new($"{prefix}COMPARTIMENTO", $"Duplicado: {d.COMPARTIMENTO}"));
 
-            if (string.IsNullOrWhiteSpace(d.NroEntrega))
-                errors.Add(new($"{prefix}NroEntrega", "Requerido"));
-            if (string.IsNullOrWhiteSpace(d.Producto))
-                errors.Add(new($"{prefix}Producto", "Requerido"));
-            if (string.IsNullOrWhiteSpace(d.UMVol))
-                errors.Add(new($"{prefix}UMVol", "Requerido"));
+            if (string.IsNullOrWhiteSpace(d.NRO_ENTREGA))
+                errors.Add(new($"{prefix}NRO_ENTREGA", "Requerido"));
+            if (string.IsNullOrWhiteSpace(d.PROD_COMER))
+                errors.Add(new($"{prefix}PROD_COMER", "Requerido"));
+            if (string.IsNullOrWhiteSpace(d.UMVOL))
+                errors.Add(new($"{prefix}UMVOL", "Requerido"));
 
-            if (!decimal.TryParse(d.Volumen,
+            if (!decimal.TryParse(d.VOLUMEN,
                     System.Globalization.NumberStyles.Any,
                     System.Globalization.CultureInfo.InvariantCulture,
                     out var vol) || vol <= 0)
-                errors.Add(new($"{prefix}Volumen", $"Debe ser mayor a 0: {d.Volumen}"));
+                errors.Add(new($"{prefix}VOLUMEN", $"Debe ser mayor a 0: {d.VOLUMEN}"));
         }
         return errors;
     }
 
-    private static DespachoHeader MapToEntity(PlanificacionHeaderXml h, DateTime fechaCarga,
-        List<PlanificacionDetailXml> details)
+    private static DespachoHeader MapToEntity(MT_Planifica_Carga_Request h, DateTime fechaCarga,
+        List<DT_Planifica_Carga_DetItem> details)
     {
         var header = new DespachoHeader
         {
-            NroTransporte = h.NroTransporte,
-            Terminal = h.Terminal,
-            Mayorista = h.Mayorista,
-            PlacaVeh = h.PlacaVeh,
+            NroTransporte = h.I_NRO_TRANSPORTE!,
+            Terminal = h.I_TERMINAL!,
+            Mayorista = h.I_MAYORISTA!,
+            PlacaVeh = h.I_PLACA_VEH!,
             FechaCarga = fechaCarga,
-            DNI = h.DNI,
-            Destino = h.Destino,
-            IndViaje = h.IndViaje,
-            BayQueuePriority = h.BayQueuePriority,
+            DNI = h.I_DNI!,
+            Destino = h.I_DESTINO!,
+            IndViaje = h.I_IND_VIAJE!,
+            BayQueuePriority = h.I_BAY_QUEUE_PRIORITY!,
             Estado = EstadoDespacho.Pendiente,
             CreadoEn = DateTime.UtcNow
         };
 
         foreach (var d in details)
         {
-            decimal.TryParse(d.Volumen,
+            decimal.TryParse(d.VOLUMEN,
                 System.Globalization.NumberStyles.Any,
                 System.Globalization.CultureInfo.InvariantCulture,
                 out var volumen);
@@ -163,15 +156,15 @@ public sealed class DespachoService
 
             header.Details.Add(new DespachoDetail
             {
-                NroTransporte = h.NroTransporte,
-                NroEntrega = d.NroEntrega,
-                CustomerCode = d.CustomerCode,
-                Destinatario = d.Destinatario,
+                NroTransporte = h.I_NRO_TRANSPORTE!,
+                NroEntrega = d.NRO_ENTREGA!,
+                CustomerCode = d.CUSTOMER_CODE,
+                Destinatario = d.DESTINATARIO,
                 SCOP = d.SCOP,
-                NroCompartimento = d.NroCompartimento,
-                Producto = d.Producto,
+                NroCompartimento = d.COMPARTIMENTO!,
+                Producto = d.PROD_COMER!,
                 Volumen = volumen,
-                UMVol = d.UMVol,
+                UMVol = d.UMVOL!,
                 API = api,
                 Estado = EstadoDespacho.Pendiente
             });
@@ -202,18 +195,6 @@ public sealed class DespachoService
 
 public sealed class ValidationErrors : List<ValidationError>
 {
-    public string ToXml()
-    {
-        var sb = new StringBuilder();
-        sb.AppendLine("<ErrorResponse>");
-        sb.AppendLine("  <Status>ERROR</Status>");
-        sb.AppendLine("  <Messages>");
-        foreach (var err in this)
-            sb.AppendLine($"    <Message Field=\"{System.Security.SecurityElement.Escape(err.Field)}\">{System.Security.SecurityElement.Escape(err.Message)}</Message>");
-        sb.AppendLine("  </Messages>");
-        sb.AppendLine("</ErrorResponse>");
-        return sb.ToString();
-    }
 }
 
 public sealed record ValidationError(string Field, string Message);

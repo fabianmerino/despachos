@@ -1,8 +1,7 @@
-using System.Text;
-using System.Xml.Serialization;
 using Microsoft.EntityFrameworkCore;
 using Despachos.Api.Data;
 using Despachos.Api.Models;
+using Despachos.Api.SoapSap;
 
 namespace Despachos.Api.Services;
 
@@ -49,11 +48,10 @@ public sealed class ConfirmacionService
             return;
         }
 
-        var payloadXml = ArmarPayloadConfirmacion(header, confirmaciones);
         var outboxEntry = new OutboxConfirmacion
         {
             NroTransporte = nroTransporte,
-            Payload = payloadXml,
+            Payload = "",
             Reintentos = 0,
             MaxReintentos = 3,
             Estado = OutboxEstado.Pendiente,
@@ -67,55 +65,66 @@ public sealed class ConfirmacionService
         _logger.LogInformation("Despacho {NroTransporte} encolado en outbox para envio a SAP", nroTransporte);
     }
 
-    private static string ArmarPayloadConfirmacion(DespachoHeader header,
+    public async Task<SIS_Confirma_CargaRequest?> ConstruirRequestAsync(string nroTransporte, CancellationToken ct)
+    {
+        var header = await _db.DespachosHeaders
+            .Include(h => h.Details)
+            .FirstOrDefaultAsync(h => h.NroTransporte == nroTransporte, ct);
+
+        if (header is null)
+        {
+            _logger.LogWarning("Despacho {NroTransporte} no encontrado en BD para construir request", nroTransporte);
+            return null;
+        }
+
+        var confirmaciones = await _db.ConfirmacionesDespacho
+            .Where(c => c.NroTransporte == nroTransporte)
+            .ToListAsync(ct);
+
+        if (confirmaciones.Count == 0)
+        {
+            _logger.LogWarning("Sin datos de confirmacion para {NroTransporte} al construir request", nroTransporte);
+            return null;
+        }
+
+        return ArmarRequestConfirmacion(header, confirmaciones);
+    }
+
+    internal static SIS_Confirma_CargaRequest ArmarRequestConfirmacion(DespachoHeader header,
         List<ConfirmacionDespacho> confirmaciones)
     {
-        var payload = new ConfirmacionCargaXml
-        {
-            Header = new ConfirmacionHeaderXml
-            {
-                NroTransporte = header.NroTransporte
-            },
-            Details = new List<ConfirmacionDetailXml>()
-        };
+        var items = new List<DT_Confirma_Carga_DetItem>();
 
         foreach (var conf in confirmaciones)
         {
             var detail = header.Details
                 .FirstOrDefault(d => d.NroCompartimento == conf.NroCompartimento);
 
-            payload.Details.Add(new ConfirmacionDetailXml
+            items.Add(new DT_Confirma_Carga_DetItem
             {
-                NroTransporte = header.NroTransporte,
-                NroEntrega = detail?.NroEntrega ?? "",
-                NroCompartimento = conf.NroCompartimento,
-                Producto = detail?.Producto ?? "",
-                Temperatura = conf.Temperatura?.ToString("F2",
-                    System.Globalization.CultureInfo.InvariantCulture) ?? "0.00",
-                APIDespachado = conf.APIDespachado?.ToString("F4",
-                    System.Globalization.CultureInfo.InvariantCulture) ?? "0.0000",
-                VolObservado = conf.VolObservado?.ToString("F2",
-                    System.Globalization.CultureInfo.InvariantCulture) ?? "0.00",
-                UMVol = detail?.UMVol ?? "",
-                Vol60 = conf.Vol60?.ToString("F2",
-                    System.Globalization.CultureInfo.InvariantCulture) ?? "0.00"
+                NRO_TRANS = header.NroTransporte,
+                NRO_ENTREGA = detail?.NroEntrega ?? "",
+                COMPARTIMENTO = conf.NroCompartimento,
+                PROD_COMER = detail?.Producto ?? "",
+                T_DESPACHO = conf.Temperatura?.ToString("F2",
+                    System.Globalization.CultureInfo.InvariantCulture) ?? "",
+                API_DESPACHO = conf.APIDespachado?.ToString("F4",
+                    System.Globalization.CultureInfo.InvariantCulture) ?? "",
+                VOL_DESPA_OBS = conf.VolObservado?.ToString("F2",
+                    System.Globalization.CultureInfo.InvariantCulture) ?? "",
+                UMVOL = detail?.UMVol ?? "",
+                VOL_DESPA_60 = conf.Vol60?.ToString("F2",
+                    System.Globalization.CultureInfo.InvariantCulture) ?? ""
             });
         }
 
-        var serializer = new XmlSerializer(typeof(ConfirmacionCargaXml));
-        var ns = new XmlSerializerNamespaces();
-        ns.Add("", "");
-        var settings = new System.Xml.XmlWriterSettings
+        var inner = new DT_Confirma_Carga_Request
         {
-            Indent = true,
-            Encoding = Encoding.UTF8,
-            OmitXmlDeclaration = false
+            I_NRO_TRANSPORTE = header.NroTransporte,
+            Detalle = new[] { items.ToArray() }
         };
 
-        using var sw = new StringWriter();
-        using var writer = System.Xml.XmlWriter.Create(sw, settings);
-        serializer.Serialize(writer, payload, ns);
-        return sw.ToString();
+        return new SIS_Confirma_CargaRequest(inner);
     }
 
     public async Task<List<string>> ObtenerCompletadosPendientesAsync(CancellationToken ct)

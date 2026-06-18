@@ -1,0 +1,17 @@
+{
+  "providerId": "Microsoft.Tools.ServiceModel.Svcutil",
+  "version": "8.0.0",
+  "options": {
+    "inputs": [
+      "../../../wsdl/confirmacion-3.2.wsdl"
+    ],
+    "messageContract": true,
+    "namespaceMappings": [
+      "*, Despachos.Api.SoapSap"
+    ],
+    "outputFile": "Reference.cs",
+    "sync": true,
+    "targetFramework": "net9.0",
+    "typeReuseMode": "All"
+  }
+}
