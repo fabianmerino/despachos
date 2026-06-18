@@ -65,21 +65,21 @@ _Avoid_: Estado 0/1/2, active, done
 1. **MySQL única** – compartida entre Servicio Web y SCADA. Ambos leen/escriben la misma BD.
 2. **OPC-UA solo para confirmación** – no se usa para notificar nuevas órdenes. El sentido es SCADA → Servicio Web únicamente.
 3. **Subscription OPC-UA** – el servicio web usa MonitoredItem, no polling.
-4. **Síncrono SAP inbound** – SAP espera respuesta del servicio web al enviar 3.1.
+4. **Síncrono SAP inbound SOAP** – SAP PI consume un servicio SOAP 1.1 expuesto por el servicio web (`SIS_Planifica_Carga`, path `/soap/planificacion-carga`, binding document/literal, namespace `urn:petroperu.com.pe:pmerp:tas:Planifica_Carga`, soapAction `http://sap.com/xi/WebService/soap1.1`). SoapCore code-first publica el WSDL en `?wsdl`. Response con `DT_RETURN.TYPE` (`S` = guardada en `Pendiente`, `E` = error de validación/negocio).
 5. **Stack .NET 8** – Minimal API, OPC Foundation, Pomelo EF Core MySQL, IHostedService para subscription OPC-UA.
 6. **Merge de datos en confirmación** – el payload 3.2 combina mediciones del SCADA (temperatura, API despachado, vol observado, vol a 60°F) con datos fijos de la orden original (NroEntrega, NroCompartimento, Producto, UMVol).
-7. **Confirmación a SAP vía HTTP** – el servicio web consume un endpoint de SAP para enviar la Interfaz de Confirmación de Carga (3.2), no vía OPC-UA.
+7. **Confirmación a SAP vía SOAP 1.1** – el servicio web consume un Web Service SOAP expuesto por SAP PI (WSDL `SIS_Confirma_Carga`, binding document/literal, namespace `urn:petroperu.com.pe:pmerp:tas:Confirma_Carga`, soapAction `http://sap.com/xi/WebService/soap1.1`). Proxy WCF generado con `dotnet-svcutil` en `src/Despachos.Api/SoapSap/`. Auth Basic sobre HTTP (usuario/clave del service `BC_WS`). Éxito/error se decide por `DT_RETURN.TYPE` (`S`/`W` = Confirmado, `E` = Error, sin reintento). SOAP Fault y 5xx → reintento con backoff.
 8. **SCADA consulta MySQL directo** – el SCADA lee la BD sin intermediación del servicio web, para no depender de su uptime.
 9. **Detección de completados con doble mecanismo** – en caliente el servicio web recibe subscription OPC-UA; al startup escanea MySQL por órdenes completadas sin confirmación enviada a SAP.
 10. **Outbox pattern para confirmación a SAP** – los envíos se encolan en tabla `outbox_confirmacion` con reintentos (3 intentos, backoff 10s/30s/60s); un `BackgroundService` procesa la cola.
-11. **Autenticación API Key** – SAP inbound + outbound usan `X-API-Key`. OPC-UA usa user/password.
-12. **Idempotencia por NroTransporte** – duplicado de SAP en estado Pendiente hace update; en otros estados devuelve 409.
+11. **Autenticación mixta** – SAP inbound (3.1 SOAP) usa HTTP Basic Auth con credenciales dedicadas (`SapInbound:Username`/`Password`). SAP outbound (3.2 SOAP) usa HTTP Basic Auth con las credenciales del service `BC_WS` de SAP PI. OPC-UA usa user/password.
+12. **Idempotencia por NroTransporte** – duplicado de SAP en estado Pendiente hace update; en otros estados devuelve `DT_RETURN.TYPE=E` (conflicto de estado).
 13. **Variable OPC-UA de completado** – string con formato `"NroTransporte|1"`. El servicio web parsea para obtener el NroTransporte.
-14. **Cancelación** – endpoint separado `POST /cancelacion`. Solo acepta órdenes en estado Pendiente.
-15. **Validación inbound** – estructural (XML bien formado, campos obligatorios) + `Volumen > 0`, `NroCompartimento` no duplicado. Sin validación de catálogos.
-16. **Respuestas de error a SAP** – HTTP status + XML estructurado con mensajes por campo.
+14. **Sin cancelación vía SOAP** – no se expone operación de cancelación al SAP. El operario gestiona cancelaciones por otro canal. `DespachoService.CancelarOrdenAsync` se conserva como capacidad interna sin endpoint público.
+15. **Validación inbound** – estructural (XML bien formado, campos obligatorios) + `Volumen > 0`, `COMPARTIMENTO` no duplicado. Sin validación de catálogos. Se ejecuta sobre el `MT_Planifica_Carga_Request` ya desserializado por SoapCore.
+16. **Respuestas de error a SAP** – SOAP 1.1 con `MT_Planifica_Carga_Response.Return` (`DT_RETURN`): `TYPE=E` + `MESSAGE` con los errores de validación concatenados. Éxito con `TYPE=S`.
 17. **Startup degradado** – si OPC-UA no está disponible al iniciar, el servicio acepta órdenes igual e intenta reconectar en background cada 30s.
 18. **Configuración** – `appsettings.json` + variables de entorno. Secretos (API keys, OPC-UA creds) en variables de entorno o user secrets.
 19. **Graceful shutdown** – drain del worker outbox (timeout 30s). Pendientes en memoria se recuperan vía startup scan.
-20. **SAP outbound 3.2 es XML** – misma convención REST + XML que el inbound.
-21. **Confirmación a SAP idempotente por HTTP status** – 2xx = `Confirmado`, 4xx = `Error`, 5xx = reintento.
+20. **SAP outbound 3.2 es SOAP** – documento XML envuelto en SOAP envelope, binding document/literal, soapAction `http://sap.com/xi/WebService/soap1.1`. Payload generado por el proxy WCF en `src/Despachos.Api/SoapSap/`.
+21. **Confirmación a SAP idempotente por `DT_RETURN.TYPE`** – `S`/`W` = `Confirmado`, `E` = `Error` (no reintenta), SOAP Fault / 5xx / `CommunicationException` = reintento con backoff.
