@@ -25,8 +25,15 @@ public sealed class BasicAuthMiddleware
         }
 
         var config = context.RequestServices.GetRequiredService<IConfiguration>();
-        var expectedUser = config["SapInbound:Username"] ?? "";
-        var expectedPass = config["SapInbound:Password"] ?? "";
+
+        // Cada consumidor externo (SAP PI para el SOAP inbound, el servicio de captura
+        // para el webhook) tiene sus propias credenciales dedicadas: no comparten secreto.
+        var (userKey, passKey) = path.StartsWith("/webhooks/despacho-completado", StringComparison.Ordinal)
+            ? ("WebhookCompletado:Username", "WebhookCompletado:Password")
+            : ("SapInbound:Username", "SapInbound:Password");
+
+        var expectedUser = config[userKey] ?? "";
+        var expectedPass = config[passKey] ?? "";
 
         // Sin credenciales configuradas se deniega (fail-closed): el arranque del servicio ya
         // deberia haber fallado en este caso (ver Program.cs), pero este chequeo evita que el

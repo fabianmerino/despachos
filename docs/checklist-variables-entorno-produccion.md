@@ -17,7 +17,12 @@ Requieren reiniciar el servicio (o la sesión) para tomar efecto.
 - [ ] `SapInbound__Username`
 - [ ] `SapInbound__Password`
 
-  Credenciales que SAP PI usa contra el Basic Auth del inbound SOAP. [Program.cs:65-70](../src/Despachos.Api/Program.cs) corta el arranque (`Log.Fatal` + excepción) si `SapInbound__Username` está vacío, a propósito: sin esto el endpoint quedaría sin autenticación. En el `appsettings.json` versionado viene vacío adrede.
+  Credenciales que SAP PI usa contra el Basic Auth del inbound SOAP. [Program.cs](../src/Despachos.Api/Program.cs) corta el arranque (`Log.Fatal` + excepción) si `SapInbound__Username` está vacío, a propósito: sin esto el endpoint quedaría sin autenticación. En el `appsettings.json` versionado viene vacío adrede.
+
+- [ ] `WebhookCompletado__Username`
+- [ ] `WebhookCompletado__Password`
+
+  Credenciales que el Servicio de Captura (reemplaza a OPC-UA/OPC One, ver [ADR 0003](adr/0003-webhook-despacho-completado.md)) usa contra el Basic Auth del webhook `/webhooks/despacho-completado`. Mismo fail-closed que `SapInbound__Username`: sin esto el servicio no arranca. Son credenciales **distintas** a las de SAP — no reutilizar `SapInbound__Username`/`Password` aquí.
 
 ## 🟠 Alta prioridad — el servicio arranca, pero mal configurado en producción
 
@@ -34,23 +39,11 @@ Requieren reiniciar el servicio (o la sesión) para tomar efecto.
 
   Credenciales salientes hacia el servicio `BC_WS` de SAP PI. Vienen vacías en el `appsettings.json` base; si el endpoint de producción exige Basic Auth (probable, tratándose de un WS externo), las llamadas saldrán con `401` si se dejan así.
 
-- [ ] `OpcUa__EndpointUrl`
-
-  Valor versionado: `opc.tcp://localhost:4840`. Confirmar si `Despachos.Api` corre en el mismo servidor que el OPC-UA Server del SCADA; si no, apuntar al host/IP real (típicamente puerto `4840/tcp`, ver §9 firewall saliente).
-
 ## 🟡 Recomendadas — según el entorno de red
-
-- [ ] `OpcUa__UserName` / `OpcUa__Password`
-
-  Solo si el OPC-UA Server del SCADA exige autenticación (no todos la piden).
-
-- [ ] `OpcUa__UseSecurity`
-
-  `false` por defecto (canal `SecurityPolicy=None`, más simple para el primer arranque). Cambiar a `true` una vez intercambiados los certificados con el SCADA — ver §7 de `instalacion-windows.md`.
 
 - [ ] `Kestrel__Endpoints__Https__Url` + `Kestrel__Endpoints__Https__Certificate__Path` + `...Certificate__Password`
 
-  El servicio expone HTTP plano por defecto (`http://0.0.0.0:8080`) — Basic Auth sobre HTTP viaja en base64, legible en la red. Si SAP PI no llega por una red ya cifrada/segmentada, habilitar HTTPS (procedimiento completo en §10 de `instalacion-windows.md`).
+  El servicio expone HTTP plano por defecto (`http://0.0.0.0:8080`) — Basic Auth sobre HTTP viaja en base64, legible en la red. Si SAP PI o el Servicio de Captura no llegan por una red ya cifrada/segmentada, habilitar HTTPS (procedimiento completo en §9 de `instalacion-windows.md`).
 
 - [ ] `Logging__FilePath`
 
@@ -63,11 +56,12 @@ Plantilla para pegar en PowerShell **como administrador**, completando los valor
 ```powershell
 [Environment]::SetEnvironmentVariable("SapInbound__Username", "<usuario-sap-pi>", "Machine")
 [Environment]::SetEnvironmentVariable("SapInbound__Password", "<password>", "Machine")
+[Environment]::SetEnvironmentVariable("WebhookCompletado__Username", "<usuario-servicio-captura>", "Machine")
+[Environment]::SetEnvironmentVariable("WebhookCompletado__Password", "<password>", "Machine")
 [Environment]::SetEnvironmentVariable("ConnectionStrings__DefaultConnection", "Server=<host-mysql>;Database=Despachos;User=despachos_app;Password=<password>;", "Machine")
 [Environment]::SetEnvironmentVariable("Sap__ConfirmacionEndpoint", "<url-produccion-confirmada-con-sap-pi>", "Machine")
 [Environment]::SetEnvironmentVariable("Sap__Username", "<usuario-bc-ws>", "Machine")
 [Environment]::SetEnvironmentVariable("Sap__Password", "<password>", "Machine")
-[Environment]::SetEnvironmentVariable("OpcUa__EndpointUrl", "opc.tcp://<host-scada>:4840", "Machine")
 ```
 
 ## No es una variable de entorno, pero bloquea la validación end-to-end
@@ -76,4 +70,4 @@ Plantilla para pegar en PowerShell **como administrador**, completando los valor
 
 ## Verificación post-instalación
 
-Ya cubierta en §11 de `instalacion-windows.md`: `GET /health` debe devolver `Healthy`, y una request al WSDL sin `Authorization` debe devolver `401`.
+Ya cubierta en §10 de `instalacion-windows.md`: `GET /health` debe devolver `Healthy`, y una request al WSDL o al webhook sin `Authorization` debe devolver `401`.

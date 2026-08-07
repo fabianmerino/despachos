@@ -37,6 +37,9 @@ internal static class TestFactory
         new(despacho, Microsoft.Extensions.Logging.Abstractions.NullLogger<PlanificaCargaService>.Instance,
             new HttpContextAccessor());
 
+    public static WebhookCompletadoService CreateWebhookCompletadoService(DespachoCompletadoNotifier notifier) =>
+        new(notifier, Microsoft.Extensions.Logging.Abstractions.NullLogger<WebhookCompletadoService>.Instance);
+
     public static MT_Planifica_Carga_Request BuildValidRequest(string nroTransporte = "0001234567",
         params (string compartimento, string volumen, string entrega)[] compartimentos)
     {
