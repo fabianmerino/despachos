@@ -1,0 +1,25 @@
+{
+  "_instrucciones": "Plantilla para produccion. Copiar junto al Despachos.Api.exe como 'appsettings.Production.json' y completar los valores REEMPLAZAR_*. El archivo real NO se commitea (ver .gitignore). Los secretos (passwords) es preferible pasarlos por variable de entorno en vez de dejarlos en este archivo -- ver docs/checklist-variables-entorno-produccion.md.",
+  "ConnectionStrings": {
+    "DefaultConnection": "Server=REEMPLAZAR_HOST_MYSQL;Database=Despachos;User=despachos_app;Password=REEMPLAZAR_PASSWORD;"
+  },
+  "Database": {
+    "MySqlServerVersion": "REEMPLAZAR_SI_NO_ES_8.0.36-mysql (SELECT VERSION(); en el MySQL real)"
+  },
+  "SapInbound": {
+    "Username": "REEMPLAZAR_USUARIO_SAP_PI",
+    "Password": "REEMPLAZAR_PASSWORD"
+  },
+  "Sap": {
+    "ConfirmacionEndpoint": "REEMPLAZAR_URL_PRODUCCION_CONFIRMADA_CON_EQUIPO_SAP_PI_NO_petpidqc",
+    "Username": "REEMPLAZAR_USUARIO_BC_WS",
+    "Password": "REEMPLAZAR_PASSWORD"
+  },
+  "OpcUa": {
+    "EndpointUrl": "opc.tcp://REEMPLAZAR_HOST_SCADA:4840",
+    "UserName": "",
+    "Password": "",
+    "UseSecurity": false,
+    "AutoAcceptUntrustedCertificates": false
+  }
+}

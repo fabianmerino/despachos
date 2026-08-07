@@ -10,6 +10,11 @@
     <InternalsVisibleTo Include="Despachos.Api.Tests" />
   </ItemGroup>
 
+  <!-- appsettings.Development.json no debe viajar en el artefacto de produccion (contiene credenciales de dev). -->
+  <ItemGroup Condition="'$(Configuration)' == 'Release'">
+    <Content Update="appsettings.Development.json" CopyToPublishDirectory="Never" />
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="8.0.29" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.29">

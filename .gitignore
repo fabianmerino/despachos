@@ -5,6 +5,9 @@
 # Logs
 Logs/
 
+# Config de produccion con secretos reales -- usar appsettings.Production.json.example como plantilla
+appsettings.Production.json
+
 # Generated files
 project.lock.json
 .vs/
