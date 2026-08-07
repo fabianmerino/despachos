@@ -15,11 +15,8 @@
     "Username": "REEMPLAZAR_USUARIO_BC_WS",
     "Password": "REEMPLAZAR_PASSWORD"
   },
-  "OpcUa": {
-    "EndpointUrl": "opc.tcp://REEMPLAZAR_HOST_SCADA:4840",
-    "UserName": "",
-    "Password": "",
-    "UseSecurity": false,
-    "AutoAcceptUntrustedCertificates": false
+  "WebhookCompletado": {
+    "Username": "REEMPLAZAR_USUARIO_WEBHOOK_COMPLETADO",
+    "Password": "REEMPLAZAR_PASSWORD"
   }
 }

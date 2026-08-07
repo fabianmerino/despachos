@@ -20,12 +20,12 @@ public sealed class OutboxWorker : BackgroundService
         ILogger<OutboxWorker> logger,
         IServiceScopeFactory scopeFactory,
         IConfiguration config,
-        OpcUaBackgroundService opcUaService)
+        DespachoCompletadoNotifier notifier)
     {
         _logger = logger;
         _scopeFactory = scopeFactory;
         _config = config;
-        _completadosReader = opcUaService.CompletadosReader;
+        _completadosReader = notifier.Reader;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -91,7 +91,7 @@ public sealed class OutboxWorker : BackgroundService
 
             try
             {
-                _logger.LogInformation("Procesando notificacion OPC-UA: {NroTransporte}", nroTransporte);
+                _logger.LogInformation("Procesando notificacion de despacho completado: {NroTransporte}", nroTransporte);
 
                 using var scope = _scopeFactory.CreateScope();
                 var svc = scope.ServiceProvider.GetRequiredService<ConfirmacionService>();

@@ -22,7 +22,7 @@ public class BasicAuthMiddlewareTests : IDisposable
         _serverNoCreds = CreateServer(null, null);
         _clientNoCreds = _serverNoCreds.CreateClient();
 
-        _serverWithCreds = CreateServer("sapuser", "sappass");
+        _serverWithCreds = CreateServer("sapuser", "sappass", "webhookuser", "webhookpass");
         _clientWithCreds = _serverWithCreds.CreateClient();
     }
 
@@ -104,7 +104,44 @@ public class BasicAuthMiddlewareTests : IDisposable
         Assert.Equal(HttpStatusCode.Unauthorized, resp.StatusCode);
     }
 
-    private static TestServer CreateServer(string? user, string? pass)
+    [Fact]
+    public async Task Webhook_CredencialesWebhookCorrectas_Retorna200()
+    {
+        var req = new HttpRequestMessage(HttpMethod.Post, "/webhooks/despacho-completado");
+        req.Headers.Authorization = new AuthenticationHeaderValue("Basic", Base64("webhookuser:webhookpass"));
+
+        var resp = await _clientWithCreds.SendAsync(req);
+
+        Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
+    }
+
+    [Fact]
+    public async Task Webhook_CredencialesSapInbound_Retorna401()
+    {
+        // Las credenciales del SOAP inbound (SAP PI) no deben servir para el webhook:
+        // son consumidores distintos con secretos dedicados.
+        var req = new HttpRequestMessage(HttpMethod.Post, "/webhooks/despacho-completado");
+        req.Headers.Authorization = new AuthenticationHeaderValue("Basic", Base64("sapuser:sappass"));
+
+        var resp = await _clientWithCreds.SendAsync(req);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, resp.StatusCode);
+    }
+
+    [Fact]
+    public async Task SoapInbound_CredencialesWebhook_Retorna401()
+    {
+        // Y viceversa: las credenciales del webhook no deben servir para el path del SOAP inbound.
+        var req = new HttpRequestMessage(HttpMethod.Get, "/test");
+        req.Headers.Authorization = new AuthenticationHeaderValue("Basic", Base64("webhookuser:webhookpass"));
+
+        var resp = await _clientWithCreds.SendAsync(req);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, resp.StatusCode);
+    }
+
+    private static TestServer CreateServer(string? user, string? pass,
+        string? webhookUser = null, string? webhookPass = null)
     {
         var builder = new WebHostBuilder()
             .ConfigureAppConfiguration((ctx, cfg) =>
@@ -112,6 +149,8 @@ public class BasicAuthMiddlewareTests : IDisposable
                 var dict = new Dictionary<string, string?>();
                 if (user is not null) dict["SapInbound:Username"] = user;
                 if (pass is not null) dict["SapInbound:Password"] = pass;
+                if (webhookUser is not null) dict["WebhookCompletado:Username"] = webhookUser;
+                if (webhookPass is not null) dict["WebhookCompletado:Password"] = webhookPass;
                 cfg.AddInMemoryCollection(dict);
             })
             .ConfigureServices(services =>
@@ -121,6 +160,11 @@ public class BasicAuthMiddlewareTests : IDisposable
             {
                 app.UseMiddleware<Despachos.Api.Middleware.BasicAuthMiddleware>();
                 app.Map("/test", branch => branch.Run(async ctx =>
+                {
+                    ctx.Response.StatusCode = 200;
+                    await ctx.Response.WriteAsync("pong");
+                }));
+                app.Map("/webhooks/despacho-completado", branch => branch.Run(async ctx =>
                 {
                     ctx.Response.StatusCode = 200;
                     await ctx.Response.WriteAsync("pong");

@@ -3,28 +3,6 @@ using Microsoft.Extensions.Diagnostics.HealthChecks;
 
 namespace Despachos.Api.Services;
 
-public sealed class OpcUaHealthCheck : IHealthCheck
-{
-    private readonly OpcUaBackgroundService? _opcUaService;
-
-    public OpcUaHealthCheck(OpcUaBackgroundService? opcUaService = null)
-    {
-        _opcUaService = opcUaService;
-    }
-
-    public Task<HealthCheckResult> CheckHealthAsync(
-        HealthCheckContext context,
-        CancellationToken cancellationToken = default)
-    {
-        if (_opcUaService is null)
-            return Task.FromResult(HealthCheckResult.Degraded("OPC-UA service not registered"));
-
-        return Task.FromResult(_opcUaService.IsConnected
-            ? HealthCheckResult.Healthy("OPC-UA subscription active")
-            : HealthCheckResult.Unhealthy("OPC-UA session not connected"));
-    }
-}
-
 public sealed class OutboxHealthCheck : IHealthCheck
 {
     private readonly IServiceScopeFactory _scopeFactory;

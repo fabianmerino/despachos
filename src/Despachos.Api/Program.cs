@@ -45,15 +45,14 @@ builder.Services.AddDbContext<DespachosDbContext>(options =>
 
 builder.Services.AddHealthChecks()
     .AddDbContextCheck<DespachosDbContext>("mysql", tags: new[] { "ready" })
-    .AddCheck<OpcUaHealthCheck>("opcua", tags: new[] { "ready" })
     .AddCheck<OutboxHealthCheck>("outbox", tags: new[] { "ready" });
 
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<DespachoService>();
 builder.Services.AddScoped<ConfirmacionService>();
-builder.Services.AddSingleton<OpcUaBackgroundService>();
+builder.Services.AddSingleton<DespachoCompletadoNotifier>();
+builder.Services.AddScoped<WebhookCompletadoService>();
 builder.Services.AddScoped<IPlanificaCargaService, PlanificaCargaService>();
-builder.Services.AddHostedService(sp => sp.GetRequiredService<OpcUaBackgroundService>());
 builder.Services.AddHostedService<OutboxWorker>();
 builder.Services.Configure<HostOptions>(options =>
 {
@@ -69,6 +68,13 @@ if (string.IsNullOrWhiteSpace(app.Configuration["SapInbound:Username"]))
     throw new InvalidOperationException("SapInbound:Username no esta configurado.");
 }
 
+if (string.IsNullOrWhiteSpace(app.Configuration["WebhookCompletado:Username"]))
+{
+    Log.Fatal("WebhookCompletado:Username no esta configurado. El servicio no arranca: sin credenciales, " +
+        "el Basic Auth del webhook de despacho completado quedaria abierto sin autenticacion.");
+    throw new InvalidOperationException("WebhookCompletado:Username no esta configurado.");
+}
+
 app.UseMiddleware<BasicAuthMiddleware>();
 
 IApplicationBuilder appBuilder = app;
@@ -78,6 +84,7 @@ appBuilder.UseSoapEndpoint<IPlanificaCargaService>(
     SoapSerializer.XmlSerializer);
 
 app.MapHealthEndpoints();
+app.MapWebhookEndpoints();
 
 using (var scope = app.Services.CreateScope())
 {
