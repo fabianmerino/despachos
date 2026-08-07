@@ -97,11 +97,11 @@ public class BasicAuthMiddlewareTests : IDisposable
     }
 
     [Fact]
-    public async Task SinCredsConfiguradas_DejaPasarSinAuth()
+    public async Task SinCredsConfiguradas_Deniega()
     {
         var resp = await _clientNoCreds.GetAsync("/test");
 
-        Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, resp.StatusCode);
     }
 
     private static TestServer CreateServer(string? user, string? pass)

@@ -189,6 +189,38 @@ public class ConfirmacionServiceTests
     }
 
     [Fact]
+    public async Task ProcesarDespachoCompletado_HeaderYaConfirmado_NoRetrocedeEstado()
+    {
+        await using var db = TestFactory.CreateInMemoryDb();
+        await SembrarDespachoCompletoAsync(db, "000CONF001");
+        var header = await db.DespachosHeaders.SingleAsync(h => h.NroTransporte == "000CONF001");
+        header.Estado = EstadoDespacho.Confirmado;
+        await db.SaveChangesAsync();
+        var service = TestFactory.CreateConfirmacionService(db);
+
+        await service.ProcesarDespachoCompletadoAsync("000CONF001", CancellationToken.None);
+
+        var fromDb = await db.DespachosHeaders.SingleAsync(h => h.NroTransporte == "000CONF001");
+        Assert.Equal(EstadoDespacho.Confirmado, fromDb.Estado);
+    }
+
+    [Fact]
+    public async Task ProcesarDespachoCompletado_HeaderYaCancelado_NoRetrocedeEstado()
+    {
+        await using var db = TestFactory.CreateInMemoryDb();
+        await SembrarDespachoCompletoAsync(db, "000CANC001");
+        var header = await db.DespachosHeaders.SingleAsync(h => h.NroTransporte == "000CANC001");
+        header.Estado = EstadoDespacho.Cancelado;
+        await db.SaveChangesAsync();
+        var service = TestFactory.CreateConfirmacionService(db);
+
+        await service.ProcesarDespachoCompletadoAsync("000CANC001", CancellationToken.None);
+
+        var fromDb = await db.DespachosHeaders.SingleAsync(h => h.NroTransporte == "000CANC001");
+        Assert.Equal(EstadoDespacho.Cancelado, fromDb.Estado);
+    }
+
+    [Fact]
     public async Task ProcesarDespachoCompletado_OutboxPrevioEnError_NoEncolaDuplicado()
     {
         await using var db = TestFactory.CreateInMemoryDb();

@@ -1,4 +1,6 @@
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Despachos.Api.Data;
@@ -15,6 +17,10 @@ internal static class TestFactory
         var dbId = name ?? $"despachos-{Guid.NewGuid():N}";
         var options = new DbContextOptionsBuilder<DespachosDbContext>()
             .UseInMemoryDatabase(dbId)
+            // El InMemory provider no soporta transacciones reales; las ignora como no-op.
+            // DespachoService las usa para el caso Remove+Add con la misma PK, que si funciona
+            // en MySQL, aqui solo necesitamos que no lance.
+            .ConfigureWarnings(w => w.Ignore(InMemoryEventId.TransactionIgnoredWarning))
             .Options;
         var db = new DespachosDbContext(options);
         db.Database.EnsureCreated();
@@ -28,7 +34,8 @@ internal static class TestFactory
         new(db, Microsoft.Extensions.Logging.Abstractions.NullLogger<ConfirmacionService>.Instance);
 
     public static PlanificaCargaService CreatePlanificaCargaService(DespachoService despacho) =>
-        new(despacho, Microsoft.Extensions.Logging.Abstractions.NullLogger<PlanificaCargaService>.Instance);
+        new(despacho, Microsoft.Extensions.Logging.Abstractions.NullLogger<PlanificaCargaService>.Instance,
+            new HttpContextAccessor());
 
     public static MT_Planifica_Carga_Request BuildValidRequest(string nroTransporte = "0001234567",
         params (string compartimento, string volumen, string entrega)[] compartimentos)

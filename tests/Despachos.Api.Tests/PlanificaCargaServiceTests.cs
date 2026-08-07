@@ -83,6 +83,24 @@ public class PlanificaCargaServiceTests
     }
 
     [Fact]
+    public async Task SIS_Planifica_Carga_ErrorInterno_NoFiltraDetalleYDevuelveCorrelationId()
+    {
+        var db = TestFactory.CreateInMemoryDb();
+        var despacho = TestFactory.CreateDespachoService(db);
+        var sut = TestFactory.CreatePlanificaCargaService(despacho);
+        await db.DisposeAsync();
+
+        var request = new SIS_Planifica_CargaRequest(TestFactory.BuildValidRequest("000SVC005"));
+
+        var response = await sut.SIS_Planifica_Carga(request);
+
+        Assert.Equal("E", response.MT_Planifica_Carga_Response!.Return.TYPE);
+        var msg = response.MT_Planifica_Carga_Response!.Return.MESSAGE;
+        Assert.DoesNotContain("ObjectDisposedException", msg);
+        Assert.Contains("Referencia:", msg);
+    }
+
+    [Fact]
     public async Task SIS_Planifica_Carga_RequestValido_PersisteEnBd()
     {
         await using var db = TestFactory.CreateInMemoryDb();

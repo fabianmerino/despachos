@@ -30,6 +30,8 @@ public sealed class DespachosDbContext : DbContext
             entity.Property(e => e.Estado).HasMaxLength(20).IsRequired().HasDefaultValue(EstadoDespacho.Pendiente);
             entity.Property(e => e.CreadoEn).HasColumnType("datetime").IsRequired();
 
+            entity.HasIndex(e => e.Estado);
+
             entity.HasMany(e => e.Details)
                 .WithOne(d => d.Header)
                 .HasForeignKey(d => d.NroTransporte)
@@ -82,6 +84,7 @@ public sealed class DespachosDbContext : DbContext
             entity.Property(e => e.ProximoIntentoEn).HasColumnType("datetime");
 
             entity.HasIndex(e => e.NroTransporte).IsUnique();
+            entity.HasIndex(e => new { e.Estado, e.CreadoEn });
         });
     }
 }

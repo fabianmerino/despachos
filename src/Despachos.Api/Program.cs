@@ -33,6 +33,7 @@ builder.Services.AddHealthChecks()
     .AddCheck<OpcUaHealthCheck>("opcua", tags: new[] { "ready" })
     .AddCheck<OutboxHealthCheck>("outbox", tags: new[] { "ready" });
 
+builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<DespachoService>();
 builder.Services.AddScoped<ConfirmacionService>();
 builder.Services.AddSingleton<OpcUaBackgroundService>();
@@ -45,6 +46,13 @@ builder.Services.Configure<HostOptions>(options =>
 });
 
 var app = builder.Build();
+
+if (string.IsNullOrWhiteSpace(app.Configuration["SapInbound:Username"]))
+{
+    Log.Fatal("SapInbound:Username no esta configurado. El servicio no arranca: sin credenciales, " +
+        "el Basic Auth del inbound SOAP quedaria abierto sin autenticacion.");
+    throw new InvalidOperationException("SapInbound:Username no esta configurado.");
+}
 
 app.UseMiddleware<BasicAuthMiddleware>();
 

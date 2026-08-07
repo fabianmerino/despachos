@@ -47,19 +47,34 @@ public sealed class DespachoService
             .Include(h => h.Details)
             .FirstOrDefaultAsync(h => h.NroTransporte == nroTransporte, ct);
 
+        var order = MapToEntity(request, fechaCarga, items);
+
         if (existing is not null)
         {
             if (existing.Estado != EstadoDespacho.Pendiente)
                 return new ValidationErrors { new("I_NRO_TRANSPORTE",
                     $"Orden {nroTransporte} en estado {existing.Estado}, no se puede modificar") };
 
+            // Remove + Add con la misma PK no puede ir en un solo SaveChanges: EF puede emitir
+            // el INSERT antes del DELETE y violar la clave primaria. Se separan en dos pasos
+            // dentro de una transaccion para que la actualizacion sea atomica.
+            await using var transaction = await _db.Database.BeginTransactionAsync(ct);
+
             _db.DespachosHeaders.Remove(existing);
+            await _db.SaveChangesAsync(ct);
+
+            _db.DespachosHeaders.Add(order);
+            await _db.SaveChangesAsync(ct);
+
+            await transaction.CommitAsync(ct);
+
             _logger.LogInformation("Actualizando orden existente {NroTransporte}", nroTransporte);
         }
-
-        var order = MapToEntity(request, fechaCarga, items);
-        _db.DespachosHeaders.Add(order);
-        await _db.SaveChangesAsync(ct);
+        else
+        {
+            _db.DespachosHeaders.Add(order);
+            await _db.SaveChangesAsync(ct);
+        }
 
         _logger.LogInformation("Orden {NroTransporte} guardada con {Count} compartimentos",
             nroTransporte, items.Count);

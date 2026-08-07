@@ -28,9 +28,12 @@ public sealed class BasicAuthMiddleware
         var expectedUser = config["SapInbound:Username"] ?? "";
         var expectedPass = config["SapInbound:Password"] ?? "";
 
+        // Sin credenciales configuradas se deniega (fail-closed): el arranque del servicio ya
+        // deberia haber fallado en este caso (ver Program.cs), pero este chequeo evita que el
+        // endpoint quede abierto sin autenticacion si esa validacion se elimina o se evita.
         if (string.IsNullOrWhiteSpace(expectedUser))
         {
-            await _next(context);
+            await Deny(context);
             return;
         }
 

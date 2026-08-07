@@ -7,11 +7,14 @@ public sealed class PlanificaCargaService : IPlanificaCargaService
 {
     private readonly DespachoService _despachoService;
     private readonly ILogger<PlanificaCargaService> _logger;
+    private readonly IHttpContextAccessor _httpContextAccessor;
 
-    public PlanificaCargaService(DespachoService despachoService, ILogger<PlanificaCargaService> logger)
+    public PlanificaCargaService(DespachoService despachoService, ILogger<PlanificaCargaService> logger,
+        IHttpContextAccessor httpContextAccessor)
     {
         _despachoService = despachoService;
         _logger = logger;
+        _httpContextAccessor = httpContextAccessor;
     }
 
     public async Task<SIS_Planifica_CargaResponse> SIS_Planifica_Carga(SIS_Planifica_CargaRequest request)
@@ -25,9 +28,11 @@ public sealed class PlanificaCargaService : IPlanificaCargaService
 
         _logger.LogInformation("Recibida planificacion SAP para NroTransporte {Nro}", inner.I_NRO_TRANSPORTE);
 
+        var ct = _httpContextAccessor.HttpContext?.RequestAborted ?? CancellationToken.None;
+
         try
         {
-            var result = await _despachoService.ProcesarPlanificacionAsync(inner, CancellationToken.None);
+            var result = await _despachoService.ProcesarPlanificacionAsync(inner, ct);
 
             return result.Match(
                 errors =>
@@ -45,8 +50,10 @@ public sealed class PlanificaCargaService : IPlanificaCargaService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error procesando planificacion {Nro}", inner.I_NRO_TRANSPORTE);
-            return Fault($"Error interno: {ex.Message}");
+            var correlationId = Guid.NewGuid();
+            _logger.LogError(ex, "Error procesando planificacion {Nro} [correlationId={CorrelationId}]",
+                inner.I_NRO_TRANSPORTE, correlationId);
+            return Fault($"Error interno del servicio. Referencia: {correlationId}");
         }
     }
 

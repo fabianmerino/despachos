@@ -243,9 +243,12 @@ public sealed class OutboxWorker : BackgroundService
             }
             catch (FaultException fex)
             {
-                _logger.LogError(fex, "SAP devolvio SOAP Fault para {NroTransporte}, error de negocio no reintenta",
+                // Un SOAP Fault en SAP PI suele ser tecnico (mapping, canal caido), no un rechazo
+                // de negocio: el rechazo de negocio real se decide via DT_RETURN.TYPE=E en una
+                // respuesta normal (ver mas abajo), no via fault. Por eso se reintenta.
+                _logger.LogWarning(fex, "SAP devolvio SOAP Fault para {NroTransporte}, reintento",
                     outbox.NroTransporte);
-                outbox.Estado = OutboxEstado.Error;
+                RegistrarFalloTransitorio(outbox);
                 return;
             }
             catch (CommunicationException cex)

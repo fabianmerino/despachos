@@ -61,7 +61,10 @@ public sealed class ConfirmacionService
         };
 
         _db.OutboxConfirmaciones.Add(outboxEntry);
-        header.Estado = EstadoDespacho.Completado;
+
+        if (header.Estado != EstadoDespacho.Confirmado && header.Estado != EstadoDespacho.Cancelado)
+            header.Estado = EstadoDespacho.Completado;
+
         await _db.SaveChangesAsync(ct);
 
         _logger.LogInformation("Despacho {NroTransporte} encolado en outbox para envio a SAP", nroTransporte);
