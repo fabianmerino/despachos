@@ -10,6 +10,7 @@ public sealed class OutboxConfirmacion
     public string Estado { get; set; } = OutboxEstado.Pendiente;
     public DateTime CreadoEn { get; set; } = DateTime.UtcNow;
     public DateTime? UltimoIntentoEn { get; set; }
+    public DateTime? ProximoIntentoEn { get; set; }
 }
 
 public static class OutboxEstado

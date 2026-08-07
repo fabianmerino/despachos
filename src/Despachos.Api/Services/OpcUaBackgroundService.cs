@@ -12,8 +12,11 @@ public sealed class OpcUaBackgroundService : BackgroundService
     private readonly IConfiguration _config;
     private readonly Channel<string> _completadosChannel;
     private Session? _session;
+    private SessionReconnectHandler? _reconnectHandler;
+    private volatile bool _connected;
 
     public ChannelReader<string> CompletadosReader => _completadosChannel.Reader;
+    public bool IsConnected => _connected;
 
     public OpcUaBackgroundService(
         ILogger<OpcUaBackgroundService> logger,
@@ -98,11 +101,9 @@ public sealed class OpcUaBackgroundService : BackgroundService
 
         _logger.LogInformation("OPC-UA conectado exitosamente a {Endpoint}", endpointUrl);
 
-        _session.KeepAlive += (sender, e) =>
-        {
-            if (ServiceResult.IsBad(e.Status))
-                _logger.LogWarning("OPC-UA KeepAlive error: {Status}", e.Status);
-        };
+        _session.TransferSubscriptionsOnReconnect = true;
+        _connected = true;
+        _session.KeepAlive += Session_KeepAlive;
 
         var subscription = new Subscription(_session.DefaultSubscription)
         {
@@ -137,12 +138,62 @@ public sealed class OpcUaBackgroundService : BackgroundService
         }
         finally
         {
-            subscription.RemoveItems(subscription.MonitoredItems);
-            _session.RemoveSubscription(subscription);
-            _session.Close();
-            _session.Dispose();
-            _session = null;
+            _connected = false;
+            _reconnectHandler?.Dispose();
+            _reconnectHandler = null;
+
+            if (_session is not null)
+            {
+                _session.KeepAlive -= Session_KeepAlive;
+                try
+                {
+                    subscription.RemoveItems(subscription.MonitoredItems);
+                    _session.RemoveSubscription(subscription);
+                    _session.Close();
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Error cerrando sesion OPC-UA");
+                }
+                _session.Dispose();
+                _session = null;
+            }
         }
+    }
+
+    private void Session_KeepAlive(Opc.Ua.Client.ISession session, KeepAliveEventArgs e)
+    {
+        if (!ServiceResult.IsBad(e.Status))
+        {
+            _connected = true;
+            return;
+        }
+
+        _connected = false;
+        _logger.LogWarning("OPC-UA KeepAlive error: {Status}", e.Status);
+
+        if (_reconnectHandler is not null)
+            return;
+
+        _logger.LogWarning("Sesion OPC-UA caida, iniciando reconexion");
+        _reconnectHandler = new SessionReconnectHandler(true, 30000);
+        _reconnectHandler.BeginReconnect(session, 10000, OnReconnectComplete);
+    }
+
+    private void OnReconnectComplete(object? sender, EventArgs e)
+    {
+        if (!ReferenceEquals(sender, _reconnectHandler))
+            return;
+
+        if (_reconnectHandler?.Session is Session reconnectedSession)
+        {
+            _session = reconnectedSession;
+            _connected = true;
+            _logger.LogInformation("OPC-UA reconectado exitosamente");
+        }
+
+        _reconnectHandler?.Dispose();
+        _reconnectHandler = null;
     }
 
     private void OnCompletadoNotification(MonitoredItem item, MonitoredItemNotificationEventArgs e)

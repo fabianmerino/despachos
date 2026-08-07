@@ -33,8 +33,8 @@ builder.Services.AddHealthChecks()
     .AddCheck<OpcUaHealthCheck>("opcua", tags: new[] { "ready" })
     .AddCheck<OutboxHealthCheck>("outbox", tags: new[] { "ready" });
 
-builder.Services.AddSingleton<DespachoService>();
-builder.Services.AddSingleton<ConfirmacionService>();
+builder.Services.AddScoped<DespachoService>();
+builder.Services.AddScoped<ConfirmacionService>();
 builder.Services.AddSingleton<OpcUaBackgroundService>();
 builder.Services.AddScoped<IPlanificaCargaService, PlanificaCargaService>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<OpcUaBackgroundService>());

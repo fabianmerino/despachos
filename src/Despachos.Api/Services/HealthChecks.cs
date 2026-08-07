@@ -19,7 +19,9 @@ public sealed class OpcUaHealthCheck : IHealthCheck
         if (_opcUaService is null)
             return Task.FromResult(HealthCheckResult.Degraded("OPC-UA service not registered"));
 
-        return Task.FromResult(HealthCheckResult.Healthy("OPC-UA subscription active"));
+        return Task.FromResult(_opcUaService.IsConnected
+            ? HealthCheckResult.Healthy("OPC-UA subscription active")
+            : HealthCheckResult.Unhealthy("OPC-UA session not connected"));
     }
 }
 

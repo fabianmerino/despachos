@@ -1,3 +1,4 @@
+using System.Xml.Serialization;
 using Microsoft.EntityFrameworkCore;
 using Despachos.Api.Data;
 using Despachos.Api.Models;
@@ -19,8 +20,7 @@ public sealed class ConfirmacionService
     public async Task ProcesarDespachoCompletadoAsync(string nroTransporte, CancellationToken ct)
     {
         var existeEnOutbox = await _db.OutboxConfirmaciones
-            .AnyAsync(o => o.NroTransporte == nroTransporte
-                && o.Estado != OutboxEstado.Error, ct);
+            .AnyAsync(o => o.NroTransporte == nroTransporte, ct);
 
         if (existeEnOutbox)
         {
@@ -48,10 +48,12 @@ public sealed class ConfirmacionService
             return;
         }
 
+        var innerRequest = ArmarRequestConfirmacion(header, confirmaciones).MT_Confirma_Carga_Request!;
+
         var outboxEntry = new OutboxConfirmacion
         {
             NroTransporte = nroTransporte,
-            Payload = "",
+            Payload = SerializarPayload(innerRequest),
             Reintentos = 0,
             MaxReintentos = 3,
             Estado = OutboxEstado.Pendiente,
@@ -129,14 +131,90 @@ public sealed class ConfirmacionService
 
     public async Task<List<string>> ObtenerCompletadosPendientesAsync(CancellationToken ct)
     {
-        var completadosNoEnviados = await _db.DespachosHeaders
-            .Where(h => h.Estado == EstadoDespacho.Completado)
-            .Where(h => !_db.OutboxConfirmaciones
-                .Any(o => o.NroTransporte == h.NroTransporte
-                    && o.Estado == OutboxEstado.Enviado))
-            .Select(h => h.NroTransporte)
+        var pendientes = await _db.ConfirmacionesDespacho
+            .Select(c => c.NroTransporte)
+            .Distinct()
+            .Where(nro => !_db.OutboxConfirmaciones.Any(o => o.NroTransporte == nro))
             .ToListAsync(ct);
 
-        return completadosNoEnviados;
+        return pendientes;
     }
+
+    // DT_Confirma_Carga_Request.Detalle es un array "jagged" (DT_Confirma_Carga_DetItem[][]) generado por
+    // svcutil cuyo XmlArrayItemAttribute no coincide con el tipo real del array interno, lo que hace que
+    // XmlSerializer falle al generar el serializador. Por eso el payload persistido usa un DTO plano propio.
+    internal static string SerializarPayload(DT_Confirma_Carga_Request request)
+    {
+        var payload = new ConfirmacionPayload
+        {
+            NroTransporte = request.I_NRO_TRANSPORTE ?? "",
+            Items = (request.Detalle?.SelectMany(d => d ?? Array.Empty<DT_Confirma_Carga_DetItem>())
+                    ?? Enumerable.Empty<DT_Confirma_Carga_DetItem>())
+                .Select(i => new ConfirmacionPayloadItem
+                {
+                    NroTrans = i.NRO_TRANS ?? "",
+                    NroEntrega = i.NRO_ENTREGA ?? "",
+                    Compartimento = i.COMPARTIMENTO ?? "",
+                    ProdComer = i.PROD_COMER ?? "",
+                    TDespacho = i.T_DESPACHO ?? "",
+                    ApiDespacho = i.API_DESPACHO ?? "",
+                    VolDespaObs = i.VOL_DESPA_OBS ?? "",
+                    Umvol = i.UMVOL ?? "",
+                    VolDespa60 = i.VOL_DESPA_60 ?? ""
+                }).ToList()
+        };
+
+        var serializer = new XmlSerializer(typeof(ConfirmacionPayload));
+        using var writer = new StringWriter();
+        serializer.Serialize(writer, payload);
+        return writer.ToString();
+    }
+
+    internal static DT_Confirma_Carga_Request DeserializarPayload(string payload)
+    {
+        var serializer = new XmlSerializer(typeof(ConfirmacionPayload));
+        using var reader = new StringReader(payload);
+        var parsed = (ConfirmacionPayload)serializer.Deserialize(reader)!;
+
+        var items = parsed.Items.Select(i => new DT_Confirma_Carga_DetItem
+        {
+            NRO_TRANS = i.NroTrans,
+            NRO_ENTREGA = i.NroEntrega,
+            COMPARTIMENTO = i.Compartimento,
+            PROD_COMER = i.ProdComer,
+            T_DESPACHO = i.TDespacho,
+            API_DESPACHO = i.ApiDespacho,
+            VOL_DESPA_OBS = i.VolDespaObs,
+            UMVOL = i.Umvol,
+            VOL_DESPA_60 = i.VolDespa60
+        }).ToArray();
+
+        return new DT_Confirma_Carga_Request
+        {
+            I_NRO_TRANSPORTE = parsed.NroTransporte,
+            Detalle = new[] { items }
+        };
+    }
+}
+
+[XmlRoot("ConfirmacionPayload")]
+public sealed class ConfirmacionPayload
+{
+    public string NroTransporte { get; set; } = "";
+
+    [XmlArrayItem("Item")]
+    public List<ConfirmacionPayloadItem> Items { get; set; } = new();
+}
+
+public sealed class ConfirmacionPayloadItem
+{
+    public string NroTrans { get; set; } = "";
+    public string NroEntrega { get; set; } = "";
+    public string Compartimento { get; set; } = "";
+    public string ProdComer { get; set; } = "";
+    public string TDespacho { get; set; } = "";
+    public string ApiDespacho { get; set; } = "";
+    public string VolDespaObs { get; set; } = "";
+    public string Umvol { get; set; } = "";
+    public string VolDespa60 { get; set; } = "";
 }

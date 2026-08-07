@@ -9,22 +9,21 @@ namespace Despachos.Api.Services;
 
 public sealed class OutboxWorker : BackgroundService
 {
+    private static readonly TimeSpan DrenadoPeriodico = TimeSpan.FromSeconds(15);
+
     private readonly ILogger<OutboxWorker> _logger;
     private readonly IServiceScopeFactory _scopeFactory;
-    private readonly IHttpClientFactory _httpClientFactory;
     private readonly IConfiguration _config;
     private readonly ChannelReader<string> _completadosReader;
 
     public OutboxWorker(
         ILogger<OutboxWorker> logger,
         IServiceScopeFactory scopeFactory,
-        IHttpClientFactory httpClientFactory,
         IConfiguration config,
         OpcUaBackgroundService opcUaService)
     {
         _logger = logger;
         _scopeFactory = scopeFactory;
-        _httpClientFactory = httpClientFactory;
         _config = config;
         _completadosReader = opcUaService.CompletadosReader;
     }
@@ -33,49 +32,12 @@ public sealed class OutboxWorker : BackgroundService
     {
         _logger.LogInformation("OutboxWorker iniciando");
 
-        using var scope = _scopeFactory.CreateScope();
-        var confirmacionService = scope.ServiceProvider.GetRequiredService<ConfirmacionService>();
+        await EjecutarStartupScanAsync(stoppingToken);
 
-        var pendientes = await confirmacionService.ObtenerCompletadosPendientesAsync(stoppingToken);
-        foreach (var nro in pendientes)
-        {
-            _logger.LogInformation("Startup scan: procesando completado pendiente {NroTransporte}", nro);
-            using var innerScope = _scopeFactory.CreateScope();
-            var innerConfirmacion = innerScope.ServiceProvider.GetRequiredService<ConfirmacionService>();
-            await innerConfirmacion.ProcesarDespachoCompletadoAsync(nro, stoppingToken);
-        }
+        var notificacionesTask = ProcesarNotificacionesAsync(stoppingToken);
+        var drenadoTask = DrenarPeriodicamenteAsync(stoppingToken);
 
-        while (!stoppingToken.IsCancellationRequested)
-        {
-            try
-            {
-                string? nroTransporte = null;
-                try
-                {
-                    nroTransporte = await _completadosReader.ReadAsync(stoppingToken);
-                }
-                catch (OperationCanceledException)
-                {
-                    break;
-                }
-
-                _logger.LogInformation("Procesando notificacion OPC-UA: {NroTransporte}", nroTransporte);
-
-                using var scope2 = _scopeFactory.CreateScope();
-                var svc = scope2.ServiceProvider.GetRequiredService<ConfirmacionService>();
-                await svc.ProcesarDespachoCompletadoAsync(nroTransporte, stoppingToken);
-
-                await ProcesarOutboxAsync(stoppingToken);
-            }
-            catch (OperationCanceledException)
-            {
-                break;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error procesando completado");
-            }
-        }
+        await Task.WhenAll(notificacionesTask, drenadoTask);
 
         _logger.LogInformation("OutboxWorker: drenando mensajes pendientes (graceful shutdown)");
         try
@@ -91,14 +53,94 @@ public sealed class OutboxWorker : BackgroundService
         _logger.LogInformation("OutboxWorker detenido");
     }
 
+    private async Task EjecutarStartupScanAsync(CancellationToken ct)
+    {
+        using var scope = _scopeFactory.CreateScope();
+        var confirmacionService = scope.ServiceProvider.GetRequiredService<ConfirmacionService>();
+        var pendientes = await confirmacionService.ObtenerCompletadosPendientesAsync(ct);
+
+        foreach (var nro in pendientes)
+        {
+            try
+            {
+                _logger.LogInformation("Startup scan: procesando completado pendiente {NroTransporte}", nro);
+                using var innerScope = _scopeFactory.CreateScope();
+                var innerConfirmacion = innerScope.ServiceProvider.GetRequiredService<ConfirmacionService>();
+                await innerConfirmacion.ProcesarDespachoCompletadoAsync(nro, ct);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error en startup scan procesando {NroTransporte}", nro);
+            }
+        }
+    }
+
+    private async Task ProcesarNotificacionesAsync(CancellationToken stoppingToken)
+    {
+        while (!stoppingToken.IsCancellationRequested)
+        {
+            string nroTransporte;
+            try
+            {
+                nroTransporte = await _completadosReader.ReadAsync(stoppingToken);
+            }
+            catch (OperationCanceledException)
+            {
+                break;
+            }
+
+            try
+            {
+                _logger.LogInformation("Procesando notificacion OPC-UA: {NroTransporte}", nroTransporte);
+
+                using var scope = _scopeFactory.CreateScope();
+                var svc = scope.ServiceProvider.GetRequiredService<ConfirmacionService>();
+                await svc.ProcesarDespachoCompletadoAsync(nroTransporte, stoppingToken);
+
+                await ProcesarOutboxAsync(stoppingToken);
+            }
+            catch (OperationCanceledException)
+            {
+                break;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error procesando completado {NroTransporte}", nroTransporte);
+            }
+        }
+    }
+
+    private async Task DrenarPeriodicamenteAsync(CancellationToken stoppingToken)
+    {
+        using var timer = new PeriodicTimer(DrenadoPeriodico);
+        try
+        {
+            while (await timer.WaitForNextTickAsync(stoppingToken))
+            {
+                try
+                {
+                    await ProcesarOutboxAsync(stoppingToken);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error en drenado periodico del outbox");
+                }
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
+
     private async Task ProcesarOutboxAsync(CancellationToken ct)
     {
         using var scope = _scopeFactory.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<DespachosDbContext>();
-        var confirmacionService = scope.ServiceProvider.GetRequiredService<ConfirmacionService>();
 
+        var ahora = DateTime.UtcNow;
         var pendientes = await db.OutboxConfirmaciones
             .Where(o => o.Estado == OutboxEstado.Pendiente)
+            .Where(o => o.ProximoIntentoEn == null || o.ProximoIntentoEn <= ahora)
             .OrderBy(o => o.CreadoEn)
             .ToListAsync(ct);
 
@@ -115,10 +157,9 @@ public sealed class OutboxWorker : BackgroundService
         foreach (var outbox in pendientes)
         {
             ct.ThrowIfCancellationRequested();
-            await EnviarUnoAsync(outbox, sapConfig, db, confirmacionService, ct);
+            await EnviarUnoAsync(outbox, sapConfig, db, ct);
+            await db.SaveChangesAsync(ct);
         }
-
-        await db.SaveChangesAsync(ct);
     }
 
     private SapSoapConfig? ConstruirConfigSap()
@@ -144,18 +185,20 @@ public sealed class OutboxWorker : BackgroundService
     }
 
     private async Task EnviarUnoAsync(OutboxConfirmacion outbox, SapSoapConfig sapConfig,
-        DespachosDbContext db, ConfirmacionService confirmacionService, CancellationToken ct)
+        DespachosDbContext db, CancellationToken ct)
     {
         SIS_Confirma_CargaClient? client = null;
         try
         {
-            var request = await confirmacionService.ConstruirRequestAsync(outbox.NroTransporte, ct);
-            if (request is null)
+            if (string.IsNullOrWhiteSpace(outbox.Payload))
             {
-                _logger.LogWarning("No se pudo construir request para {NroTransporte}, marcando error", outbox.NroTransporte);
+                _logger.LogWarning("Outbox {NroTransporte} sin payload, marcando error", outbox.NroTransporte);
                 outbox.Estado = OutboxEstado.Error;
                 return;
             }
+
+            var innerRequest = ConfirmacionService.DeserializarPayload(outbox.Payload);
+            var request = new SIS_Confirma_CargaRequest(innerRequest);
 
             var binding = new BasicHttpBinding
             {
@@ -263,7 +306,7 @@ public sealed class OutboxWorker : BackgroundService
             {
                 _logger.LogWarning(ex, "Error envio SAP para {NroTransporte}, reintento {Reintento}/{Max}",
                     outbox.NroTransporte, outbox.Reintentos, outbox.MaxReintentos);
-                await AplicarBackoffAsync(outbox.Reintentos, ct);
+                outbox.ProximoIntentoEn = DateTime.UtcNow + CalcularBackoff(outbox.Reintentos);
             }
             else
             {
@@ -299,19 +342,16 @@ public sealed class OutboxWorker : BackgroundService
 
         if (outbox.Reintentos >= outbox.MaxReintentos)
             outbox.Estado = OutboxEstado.Error;
+        else
+            outbox.ProximoIntentoEn = DateTime.UtcNow + CalcularBackoff(outbox.Reintentos);
     }
 
-    private static async Task AplicarBackoffAsync(int reintento, CancellationToken ct)
+    private static TimeSpan CalcularBackoff(int reintento) => reintento switch
     {
-        var delay = reintento switch
-        {
-            1 => TimeSpan.FromSeconds(10),
-            2 => TimeSpan.FromSeconds(30),
-            3 => TimeSpan.FromSeconds(60),
-            _ => TimeSpan.FromSeconds(60)
-        };
-        await Task.Delay(delay, ct);
-    }
+        1 => TimeSpan.FromSeconds(10),
+        2 => TimeSpan.FromSeconds(30),
+        _ => TimeSpan.FromSeconds(60)
+    };
 
     private sealed record SapSoapConfig(
         string Endpoint,

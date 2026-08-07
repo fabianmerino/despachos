@@ -1,3 +1,5 @@
+using Microsoft.EntityFrameworkCore;
+using Despachos.Api.Data;
 using Despachos.Api.Models;
 using Despachos.Api.Services;
 
@@ -167,6 +169,132 @@ public class ConfirmacionServiceTests
         var request = await service.ConstruirRequestAsync("NOEXISTE", CancellationToken.None);
 
         Assert.Null(request);
+    }
+
+    [Fact]
+    public async Task ProcesarDespachoCompletado_EncolaConPayloadSerializado()
+    {
+        await using var db = TestFactory.CreateInMemoryDb();
+        await SembrarDespachoCompletoAsync(db, "000PAY0001");
+        var service = TestFactory.CreateConfirmacionService(db);
+
+        await service.ProcesarDespachoCompletadoAsync("000PAY0001", CancellationToken.None);
+
+        var outbox = await db.OutboxConfirmaciones.SingleAsync(o => o.NroTransporte == "000PAY0001");
+        Assert.Equal(OutboxEstado.Pendiente, outbox.Estado);
+        Assert.False(string.IsNullOrWhiteSpace(outbox.Payload));
+
+        var deserializado = ConfirmacionService.DeserializarPayload(outbox.Payload);
+        Assert.Equal("000PAY0001", deserializado.I_NRO_TRANSPORTE);
+    }
+
+    [Fact]
+    public async Task ProcesarDespachoCompletado_OutboxPrevioEnError_NoEncolaDuplicado()
+    {
+        await using var db = TestFactory.CreateInMemoryDb();
+        await SembrarDespachoCompletoAsync(db, "000ERR0001");
+        db.OutboxConfirmaciones.Add(new OutboxConfirmacion
+        {
+            NroTransporte = "000ERR0001",
+            Payload = "<xml/>",
+            Estado = OutboxEstado.Error,
+            CreadoEn = DateTime.UtcNow
+        });
+        await db.SaveChangesAsync();
+        var service = TestFactory.CreateConfirmacionService(db);
+
+        await service.ProcesarDespachoCompletadoAsync("000ERR0001", CancellationToken.None);
+
+        var filas = await db.OutboxConfirmaciones.Where(o => o.NroTransporte == "000ERR0001").ToListAsync();
+        Assert.Single(filas);
+        Assert.Equal(OutboxEstado.Error, filas[0].Estado);
+    }
+
+    [Fact]
+    public async Task ProcesarDespachoCompletado_OutboxPrevioPendiente_NoEncolaDuplicado()
+    {
+        await using var db = TestFactory.CreateInMemoryDb();
+        await SembrarDespachoCompletoAsync(db, "000PEN0001");
+        db.OutboxConfirmaciones.Add(new OutboxConfirmacion
+        {
+            NroTransporte = "000PEN0001",
+            Payload = "<xml/>",
+            Estado = OutboxEstado.Pendiente,
+            CreadoEn = DateTime.UtcNow
+        });
+        await db.SaveChangesAsync();
+        var service = TestFactory.CreateConfirmacionService(db);
+
+        await service.ProcesarDespachoCompletadoAsync("000PEN0001", CancellationToken.None);
+
+        var filas = await db.OutboxConfirmaciones.Where(o => o.NroTransporte == "000PEN0001").ToListAsync();
+        Assert.Single(filas);
+    }
+
+    [Fact]
+    public async Task ObtenerCompletadosPendientes_ConConfirmacionSinOutbox_LoDetectaAunqueHeaderSigaPendiente()
+    {
+        await using var db = TestFactory.CreateInMemoryDb();
+        await SembrarDespachoCompletoAsync(db, "000SCAN001", dejarHeaderPendiente: true);
+        var service = TestFactory.CreateConfirmacionService(db);
+
+        var pendientes = await service.ObtenerCompletadosPendientesAsync(CancellationToken.None);
+
+        Assert.Contains("000SCAN001", pendientes);
+    }
+
+    [Fact]
+    public async Task ObtenerCompletadosPendientes_ConOutboxExistente_NoLoRetorna()
+    {
+        await using var db = TestFactory.CreateInMemoryDb();
+        await SembrarDespachoCompletoAsync(db, "000SCAN002");
+        db.OutboxConfirmaciones.Add(new OutboxConfirmacion
+        {
+            NroTransporte = "000SCAN002",
+            Payload = "<xml/>",
+            Estado = OutboxEstado.Error,
+            CreadoEn = DateTime.UtcNow
+        });
+        await db.SaveChangesAsync();
+        var service = TestFactory.CreateConfirmacionService(db);
+
+        var pendientes = await service.ObtenerCompletadosPendientesAsync(CancellationToken.None);
+
+        Assert.DoesNotContain("000SCAN002", pendientes);
+    }
+
+    private static async Task SembrarDespachoCompletoAsync(DespachosDbContext db, string nro,
+        bool dejarHeaderPendiente = false)
+    {
+        var header = new DespachoHeader
+        {
+            NroTransporte = nro,
+            Terminal = "T",
+            Mayorista = "M",
+            PlacaVeh = "P",
+            FechaCarga = DateTime.Today,
+            DNI = "12345678",
+            Destino = "D",
+            IndViaje = "1",
+            BayQueuePriority = "N",
+            Estado = dejarHeaderPendiente ? EstadoDespacho.Pendiente : EstadoDespacho.Completado,
+            Details = new List<DespachoDetail>
+            {
+                new() { NroTransporte = nro, NroCompartimento = "C1", NroEntrega = "E1", Producto = "G90", UMVol = "GL" }
+            }
+        };
+        db.DespachosHeaders.Add(header);
+        db.ConfirmacionesDespacho.Add(new ConfirmacionDespacho
+        {
+            NroTransporte = nro,
+            NroCompartimento = "C1",
+            Temperatura = 20m,
+            APIDespachado = 60m,
+            VolObservado = 100m,
+            Vol60 = 99m,
+            FechaCompletado = DateTime.UtcNow
+        });
+        await db.SaveChangesAsync();
     }
 
     private static (DespachoHeader header, List<ConfirmacionDespacho> conf) BuildHeaderAndConf(string nro)

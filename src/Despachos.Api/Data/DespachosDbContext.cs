@@ -79,6 +79,9 @@ public sealed class DespachosDbContext : DbContext
             entity.Property(e => e.Estado).HasMaxLength(20).IsRequired().HasDefaultValue(OutboxEstado.Pendiente);
             entity.Property(e => e.CreadoEn).HasColumnType("datetime").IsRequired();
             entity.Property(e => e.UltimoIntentoEn).HasColumnType("datetime");
+            entity.Property(e => e.ProximoIntentoEn).HasColumnType("datetime");
+
+            entity.HasIndex(e => e.NroTransporte).IsUnique();
         });
     }
 }
