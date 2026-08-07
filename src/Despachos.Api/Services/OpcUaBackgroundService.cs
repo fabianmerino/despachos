@@ -1,6 +1,7 @@
 using System.Threading.Channels;
 using Opc.Ua;
 using Opc.Ua.Client;
+using Opc.Ua.Configuration;
 using Despachos.Api.Services;
 
 namespace Despachos.Api.Services;
@@ -62,8 +63,17 @@ public sealed class OpcUaBackgroundService : BackgroundService
         var userName = _config["OpcUa:UserName"];
         var password = _config["OpcUa:Password"];
         var nodeId = _config["OpcUa:NodeId"] ?? "ns=2;s=Despachos.Completados";
+        var useSecurity = _config.GetValue<bool?>("OpcUa:UseSecurity") ?? false;
+        var autoAcceptUntrusted = _config.GetValue<bool?>("OpcUa:AutoAcceptUntrustedCertificates") ?? false;
 
         _logger.LogInformation("Conectando a OPC-UA {Endpoint}", endpointUrl);
+
+        if (autoAcceptUntrusted)
+            _logger.LogWarning("OPC-UA: AutoAcceptUntrustedCertificates esta activo. Usar solo en pruebas.");
+
+        var pkiRoot = _config["OpcUa:PkiRootPath"]
+            ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
+                "Despachos", "pki");
 
         var config = new ApplicationConfiguration
         {
@@ -72,7 +82,29 @@ public sealed class OpcUaBackgroundService : BackgroundService
             ApplicationType = ApplicationType.Client,
             SecurityConfiguration = new SecurityConfiguration
             {
-                AutoAcceptUntrustedCertificates = true
+                ApplicationCertificate = new CertificateIdentifier
+                {
+                    StoreType = "Directory",
+                    StorePath = Path.Combine(pkiRoot, "own"),
+                    SubjectName = $"CN=Despachos.Service, DC={System.Net.Dns.GetHostName()}"
+                },
+                TrustedIssuerCertificates = new CertificateTrustList
+                {
+                    StoreType = "Directory",
+                    StorePath = Path.Combine(pkiRoot, "issuers")
+                },
+                TrustedPeerCertificates = new CertificateTrustList
+                {
+                    StoreType = "Directory",
+                    StorePath = Path.Combine(pkiRoot, "trusted")
+                },
+                RejectedCertificateStore = new CertificateStoreIdentifier
+                {
+                    StoreType = "Directory",
+                    StorePath = Path.Combine(pkiRoot, "rejected")
+                },
+                AutoAcceptUntrustedCertificates = autoAcceptUntrusted,
+                AddAppCertToTrustedStore = true
             },
             TransportConfigurations = new TransportConfigurationCollection(),
             TransportQuotas = new TransportQuotas { OperationTimeout = 15000 },
@@ -82,7 +114,18 @@ public sealed class OpcUaBackgroundService : BackgroundService
 
         await config.Validate(ApplicationType.Client);
 
-        var endpoint = CoreClientUtils.SelectEndpoint(endpointUrl, useSecurity: false);
+        var application = new ApplicationInstance
+        {
+            ApplicationName = config.ApplicationName,
+            ApplicationType = ApplicationType.Client,
+            ApplicationConfiguration = config
+        };
+
+        var haveAppCertificate = await application.CheckApplicationInstanceCertificate(false, 0);
+        if (!haveAppCertificate)
+            _logger.LogWarning("No se pudo crear o validar el certificado de aplicacion OPC-UA en {PkiRoot}", pkiRoot);
+
+        var endpoint = CoreClientUtils.SelectEndpoint(endpointUrl, useSecurity: useSecurity);
         var endpointConfig = EndpointConfiguration.Create(config);
         var configuredEndpoint = new ConfiguredEndpoint(null, endpoint, endpointConfig);
 

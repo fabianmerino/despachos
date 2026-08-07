@@ -9,6 +9,15 @@ using Despachos.Api.SoapInbound;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Host.UseWindowsService(options =>
+{
+    options.ServiceName = "DespachosPetroperu";
+});
+
+var logPath = builder.Configuration["Logging:FilePath"]
+    ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
+        "Despachos", "logs", "despachos-.log");
+
 builder.Host.UseSerilog((context, config) =>
 {
     config
@@ -17,7 +26,7 @@ builder.Host.UseSerilog((context, config) =>
         .MinimumLevel.Override("Microsoft.Hosting.Lifetime", Serilog.Events.LogEventLevel.Information)
         .Enrich.FromLogContext()
         .WriteTo.Console(outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj}{NewLine}{Exception}")
-        .WriteTo.File("logs/despachos-.log",
+        .WriteTo.File(logPath,
             rollingInterval: RollingInterval.Day,
             outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {Message:lj}{NewLine}{Exception}");
 });
@@ -25,8 +34,14 @@ builder.Host.UseSerilog((context, config) =>
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
     ?? "Server=localhost;Database=Despachos;User=root;Password=;";
 
+// ServerVersion.AutoDetect() abriria una conexion sincrona a MySQL durante el arranque del host,
+// lo que contradice el arranque degradado (ADR 17): si MySQL esta caido, la app no llegaria a
+// levantar Kestrel. ServerVersion.Parse no toca la red, solo interpreta la version configurada.
+var mySqlVersion = builder.Configuration["Database:MySqlServerVersion"] ?? "8.0.36-mysql";
+var serverVersion = ServerVersion.Parse(mySqlVersion);
+
 builder.Services.AddDbContext<DespachosDbContext>(options =>
-    options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString)));
+    options.UseMySql(connectionString, serverVersion));
 
 builder.Services.AddHealthChecks()
     .AddDbContextCheck<DespachosDbContext>("mysql", tags: new[] { "ready" })
@@ -69,12 +84,12 @@ using (var scope = app.Services.CreateScope())
     var db = scope.ServiceProvider.GetRequiredService<DespachosDbContext>();
     try
     {
-        await db.Database.EnsureCreatedAsync();
-        Log.Information("Base de datos verificada/creada exitosamente");
+        await db.Database.MigrateAsync();
+        Log.Information("Migraciones de base de datos aplicadas exitosamente");
     }
     catch (Exception ex)
     {
-        Log.Warning(ex, "No se pudo conectar a MySQL en startup");
+        Log.Warning(ex, "No se pudo conectar a MySQL en startup (arranque degradado, ver ADR 17)");
     }
 }
 
