@@ -123,3 +123,4 @@ pptx-build/
 
 # VS/Rider language service cache
 *.lscache
+src/Despachos.Api/publish-selfcontained/
