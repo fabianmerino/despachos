@@ -143,6 +143,51 @@ public sealed class ConfirmacionService
         return pendientes;
     }
 
+    // El operador del ACCULOAD tipea el NroTransporte a mano y sistematicamente omite el
+    // segundo digito (ej. el real "8004676326" queda escrito como "804676326"), asi que
+    // guia_factura de despachos_completos no siempre calza exacto contra
+    // despachos_header.NroTransporte. Se intenta, en orden: (1) match exacto, por si la guia
+    // vino completa, (2) reconstruccion insertando un "0" despues del primer caracter, que es
+    // el patron de truncamiento confirmado, (3) match por sufijo como respaldo para otros
+    // patrones de truncamiento no confirmados. Si ninguno resuelve a un unico candidato, se
+    // devuelve null a proposito: mejor no confirmar automaticamente que confirmar contra el
+    // transporte equivocado.
+    internal static string? MatchNroTransporte(string guiaFactura, IEnumerable<string> candidatos)
+    {
+        if (string.IsNullOrWhiteSpace(guiaFactura))
+            return null;
+
+        var candidatosList = candidatos.Where(n => !string.IsNullOrWhiteSpace(n)).Distinct().ToList();
+
+        var exacto = candidatosList.Where(n => n == guiaFactura).ToList();
+        if (exacto.Count == 1)
+            return exacto[0];
+
+        if (guiaFactura.Length >= 1)
+        {
+            var reconstruido = guiaFactura[0] + "0" + guiaFactura[1..];
+            var porReconstruccion = candidatosList.Where(n => n == reconstruido).ToList();
+            if (porReconstruccion.Count == 1)
+                return porReconstruccion[0];
+        }
+
+        return MatchNroTransportePorSufijo(guiaFactura, candidatosList);
+    }
+
+    internal static string? MatchNroTransportePorSufijo(string guiaFactura, IEnumerable<string> candidatos)
+    {
+        if (string.IsNullOrWhiteSpace(guiaFactura))
+            return null;
+
+        var coincidencias = candidatos
+            .Where(n => !string.IsNullOrWhiteSpace(n)
+                && n.EndsWith(guiaFactura, StringComparison.Ordinal))
+            .Distinct()
+            .ToList();
+
+        return coincidencias.Count == 1 ? coincidencias[0] : null;
+    }
+
     // DT_Confirma_Carga_Request.Detalle es un array "jagged" (DT_Confirma_Carga_DetItem[][]) generado por
     // svcutil cuyo XmlArrayItemAttribute no coincide con el tipo real del array interno, lo que hace que
     // XmlSerializer falle al generar el serializador. Por eso el payload persistido usa un DTO plano propio.

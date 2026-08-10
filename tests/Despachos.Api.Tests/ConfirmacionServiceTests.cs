@@ -8,6 +8,109 @@ namespace Despachos.Api.Tests;
 public class ConfirmacionServiceTests
 {
     [Fact]
+    public void MatchNroTransportePorSufijo_UnSoloCandidatoTermina_Igual_LoDevuelve()
+    {
+        var resultado = ConfirmacionService.MatchNroTransportePorSufijo(
+            "7326", new[] { "1234567326", "0009999999" });
+
+        Assert.Equal("1234567326", resultado);
+    }
+
+    [Fact]
+    public void MatchNroTransportePorSufijo_GuiaIgualAlCompleto_LoDevuelve()
+    {
+        var resultado = ConfirmacionService.MatchNroTransportePorSufijo(
+            "1234567326", new[] { "1234567326", "0009999999" });
+
+        Assert.Equal("1234567326", resultado);
+    }
+
+    [Fact]
+    public void MatchNroTransportePorSufijo_DosCandidatosConElMismoSufijo_EsAmbiguo_DevuelveNull()
+    {
+        var resultado = ConfirmacionService.MatchNroTransportePorSufijo(
+            "7326", new[] { "1234567326", "9994567326" });
+
+        Assert.Null(resultado);
+    }
+
+    [Fact]
+    public void MatchNroTransportePorSufijo_NingunCandidatoCoincide_DevuelveNull()
+    {
+        var resultado = ConfirmacionService.MatchNroTransportePorSufijo(
+            "7326", new[] { "0009999999", "0001111111" });
+
+        Assert.Null(resultado);
+    }
+
+    [Fact]
+    public void MatchNroTransportePorSufijo_GuiaVacia_DevuelveNull()
+    {
+        var resultado = ConfirmacionService.MatchNroTransportePorSufijo(
+            "", new[] { "1234567326" });
+
+        Assert.Null(resultado);
+    }
+
+    [Fact]
+    public void MatchNroTransporte_GuiaSinSegundoDigito_LoReconstruyeYLoEncuentra()
+    {
+        // Caso real confirmado: el operador tipea "804676326" cuando el NroTransporte
+        // real que mando SAP es "8004676326" (se le va el "0" justo despues del primer digito).
+        var resultado = ConfirmacionService.MatchNroTransporte(
+            "804676326", new[] { "8004676326", "0009999999" });
+
+        Assert.Equal("8004676326", resultado);
+    }
+
+    [Fact]
+    public void MatchNroTransporte_GuiaCompleta_MatchExactoTienePrioridad()
+    {
+        var resultado = ConfirmacionService.MatchNroTransporte(
+            "8004676326", new[] { "8004676326", "0009999999" });
+
+        Assert.Equal("8004676326", resultado);
+    }
+
+    [Fact]
+    public void MatchNroTransporte_ReconstruccionNoAplica_CaeAFallbackDeSufijo()
+    {
+        // Ni el match exacto ni la reconstruccion (insertar "0" tras el primer digito)
+        // encuentran candidato, pero la guia sigue siendo un sufijo valido de uno solo.
+        var resultado = ConfirmacionService.MatchNroTransporte(
+            "4567326", new[] { "1234567326", "0009999999" });
+
+        Assert.Equal("1234567326", resultado);
+    }
+
+    [Fact]
+    public void MatchNroTransporte_NingunaEstrategiaResuelve_DevuelveNull()
+    {
+        var resultado = ConfirmacionService.MatchNroTransporte(
+            "804676326", new[] { "9994676999", "0009999999" });
+
+        Assert.Null(resultado);
+    }
+
+    [Fact]
+    public void MatchNroTransporte_SinNingunCandidato_DevuelveNull()
+    {
+        var resultado = ConfirmacionService.MatchNroTransporte(
+            "804676326", Array.Empty<string>());
+
+        Assert.Null(resultado);
+    }
+
+    [Fact]
+    public void MatchNroTransportePorSufijo_SinCandidatos_DevuelveNull()
+    {
+        var resultado = ConfirmacionService.MatchNroTransportePorSufijo(
+            "80467326", Array.Empty<string>());
+
+        Assert.Null(resultado);
+    }
+
+    [Fact]
     public void ArmarRequest_MapeaNroTransporte_AI_NRO_TRANSPORTE()
     {
         var (header, _) = BuildHeaderAndConf("0007777777");
